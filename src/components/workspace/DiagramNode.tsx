@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, useMotionValue } from "framer-motion";
 import { ArchComponent, ComponentKind } from "@/stores/project";
 import { Database, Globe, Server, Plug, Sparkles } from "lucide-react";
@@ -11,12 +11,12 @@ const ICONS: Record<ComponentKind, typeof Globe> = {
   ai: Sparkles,
 };
 
-const TINTS: Record<ComponentKind, string> = {
-  frontend: "bg-node-frontend/80 border-node-frontend",
-  backend: "bg-node-backend/80 border-node-backend",
-  api: "bg-node-api/80 border-node-api",
-  database: "bg-node-database/80 border-node-database",
-  ai: "bg-node-ai/80 border-node-ai",
+const KIND_LABEL: Record<ComponentKind, string> = {
+  frontend: "Frontend",
+  backend: "Backend",
+  api: "API",
+  database: "Database",
+  ai: "AI",
 };
 
 interface Props {
@@ -47,27 +47,27 @@ export const DiagramNode = ({ component, selected, onSelect, onMove, containerRe
       onDragStart={() => setDragging(true)}
       onDragEnd={(_, info) => {
         setDragging(false);
-        const newX = component.x + info.offset.x;
-        const newY = component.y + info.offset.y;
-        onMove(newX, newY);
+        onMove(component.x + info.offset.x, component.y + info.offset.y);
       }}
       onClick={() => !dragging && onSelect()}
-      whileHover={{ scale: 1.03 }}
-      whileTap={{ scale: 0.97 }}
-      className={`absolute left-0 top-0 flex w-44 cursor-grab items-center gap-3 rounded-2xl border-2 ${TINTS[component.kind]} p-3 text-left shadow-pop backdrop-blur-sm transition-smooth active:cursor-grabbing ${
-        selected ? "ring-4 ring-primary ring-offset-2 ring-offset-background" : ""
+      whileHover={{ y: -2 }}
+      className={`absolute left-0 top-0 flex w-44 cursor-grab flex-col items-start gap-2 border bg-card p-3 text-left shadow-paper transition-smooth active:cursor-grabbing ${
+        selected ? "border-primary ring-1 ring-primary" : "border-foreground/30"
       }`}
     >
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-card/90 shadow-soft">
-        <Icon className="h-5 w-5 text-foreground" />
+      <div className="flex w-full items-center justify-between">
+        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+          {KIND_LABEL[component.kind]}
+        </span>
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
-      <div className="min-w-0">
-        <div className="font-display text-sm font-bold leading-tight text-foreground">{component.name}</div>
-        <div className="truncate text-[10px] uppercase tracking-wider text-foreground/70">{component.kind}</div>
+      <div className="font-display text-base font-medium leading-tight text-foreground">
+        {component.name}
       </div>
-      {selected && (
-        <span className="pointer-events-none absolute -inset-2 -z-10 animate-pulse-ring rounded-3xl bg-primary/30" />
-      )}
+      <div
+        className="h-0.5 w-8"
+        style={{ backgroundColor: `hsl(var(--node-${component.kind}))` }}
+      />
     </motion.button>
   );
 };
