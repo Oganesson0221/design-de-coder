@@ -4,28 +4,27 @@ import { NavLink } from "./NavLink";
 import { Link } from "react-router-dom";
 
 export const SiteHeader = () => (
-  <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+  <header className="sticky top-0 z-40 border-b border-foreground/10 bg-background/85 backdrop-blur">
     <div className="container flex h-16 items-center justify-between">
       <Logo />
-      <nav className="hidden items-center gap-1 md:flex">
+      <nav className="hidden items-center gap-7 md:flex">
         {[
           { to: "/workspace", label: "Workspace" },
-          { to: "/learn", label: "Learn" },
-          { to: "/community", label: "Community" },
-          { to: "/mentors", label: "Mentors" },
+          { to: "/workspace?tab=learn", label: "Lessons" },
+          { to: "/workspace?tab=deconstruct", label: "Deconstruction" },
         ].map((l) => (
           <NavLink
-            key={l.to}
+            key={l.label}
             to={l.to}
-            className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-smooth hover:bg-muted hover:text-foreground"
-            activeClassName="bg-secondary text-secondary-foreground"
+            className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground transition-smooth hover:text-foreground"
+            activeClassName="text-foreground"
           >
             {l.label}
           </NavLink>
         ))}
       </nav>
-      <Button asChild variant="hero" size="sm" className="rounded-full">
-        <Link to="/onboarding">Start building</Link>
+      <Button asChild variant="hero" size="sm">
+        <Link to="/onboarding">Begin →</Link>
       </Button>
     </div>
   </header>
