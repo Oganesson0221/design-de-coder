@@ -4,28 +4,34 @@ import { NavLink } from "./NavLink";
 import { Link } from "react-router-dom";
 
 export const SiteHeader = () => (
-  <header className="sticky top-0 z-40 border-b border-foreground/10 bg-background/85 backdrop-blur">
+  <header className="sticky top-0 z-40 border-b-2 border-foreground bg-background/90 backdrop-blur">
     <div className="container flex h-16 items-center justify-between">
       <Logo />
-      <nav className="hidden items-center gap-7 md:flex">
+      <nav className="hidden items-center gap-1 md:flex">
         {[
-          { to: "/workspace", label: "Workspace" },
-          { to: "/workspace?tab=learn", label: "Lessons" },
-          { to: "/workspace?tab=deconstruct", label: "Deconstruction" },
+          { to: "/workspace", label: "Build" },
+          { to: "/workspace?tab=learn", label: "Roleplay" },
+          { to: "/workspace?tab=deconstruct", label: "Reverse-eng" },
         ].map((l) => (
           <NavLink
             key={l.label}
             to={l.to}
-            className="font-mono text-xs uppercase tracking-[0.18em] text-muted-foreground transition-smooth hover:text-foreground"
-            activeClassName="text-foreground"
+            className="px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-smooth hover:bg-secondary hover:text-foreground"
+            activeClassName="text-foreground bg-secondary"
           >
             {l.label}
           </NavLink>
         ))}
       </nav>
-      <Button asChild variant="hero" size="sm">
-        <Link to="/onboarding">Begin →</Link>
-      </Button>
+      <div className="flex items-center gap-2">
+        <span className="hidden sticker hover-wiggle md:inline-flex">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
+          live
+        </span>
+        <Button asChild variant="hero" size="sm">
+          <Link to="/onboarding">ship it →</Link>
+        </Button>
+      </div>
     </div>
   </header>
 );
