@@ -1,163 +1,321 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Sparkles, Github, Cpu, Database, ShieldCheck, Users } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
+import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 
 const Landing = () => {
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-
   return (
     <div className="min-h-screen bg-paper">
       <SiteHeader />
 
-      {/* Masthead */}
-      <section className="border-b border-foreground/15">
-        <div className="container py-3 text-center">
-          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground">
-            <span>Est. MMXXV</span>
-            <span className="hidden sm:inline">{today}</span>
-            <span>No. 001</span>
+      {/* Banner ribbon */}
+      <div className="border-b-2 border-foreground bg-foreground text-background">
+        <div className="container flex h-9 items-center justify-between font-mono text-[10px] uppercase tracking-[0.22em]">
+          <span className="flex items-center gap-2">
+            <Sparkles className="h-3 w-3 text-secondary" />
+            sketch · stamp · ship
+          </span>
+          <span className="hidden sm:inline">a system-design playground for builders, not a tutorial</span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-success" />
+            students online: 247
+          </span>
+        </div>
+      </div>
+
+      {/* Hero */}
+      <section className="relative border-b-2 border-foreground">
+        {/* decorative stickers */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute right-[8%] top-12 hidden rotate-[6deg] md:block">
+            <div className="sticker bg-accent text-accent-foreground">★ no slides</div>
+          </div>
+          <div className="absolute left-[6%] top-32 hidden -rotate-[8deg] md:block">
+            <div className="sticker bg-secondary">↯ chaos welcome</div>
+          </div>
+          <div className="absolute bottom-16 right-[12%] hidden rotate-[-4deg] md:block">
+            <div className="sticker bg-card">{"// hint: drag me"}</div>
+          </div>
+        </div>
+
+        <div className="container relative py-20 md:py-28">
+          <div className="mx-auto max-w-5xl">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mb-6 flex flex-wrap items-center gap-2"
+            >
+              <span className="sticker bg-secondary">
+                <span className="font-bold text-primary">README.md</span>
+              </span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
+                — for the kid who keeps asking <em className="not-italic text-foreground">"but how does it actually work?"</em>
+              </span>
+            </motion.div>
+
+            <motion.h1
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55 }}
+              className="font-display text-5xl font-bold leading-[0.95] tracking-tight md:text-7xl lg:text-[7rem]"
+            >
+              Turn a <span className="highlight-marker">half-baked idea</span>
+              <br />
+              into a real{" "}
+              <span className="font-editorial italic text-primary">system architecture</span>
+              <span className="text-accent">.</span>
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.55, delay: 0.1 }}
+              className="mt-8 max-w-2xl font-display text-lg leading-relaxed text-muted-foreground md:text-xl"
+            >
+              Three questions in. A working diagram out. Then a mentor who asks the
+              annoying-but-important questions until your design{" "}
+              <span className="highlight-pink">actually scales</span>, doesn't leak
+              data, and doesn't quietly ignore half its users.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              className="mt-10 flex flex-wrap items-center gap-4"
+            >
+              <Button asChild variant="hero" size="xl">
+                <Link to="/onboarding">
+                  start building <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="xl">
+                <Link to="/workspace">peek at the studio</Link>
+              </Button>
+              <a
+                href="#how"
+                className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-smooth hover:text-foreground"
+              >
+                <Github className="h-3.5 w-3.5" /> how it works ↓
+              </a>
+            </motion.div>
+
+            {/* Stat strip */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4 }}
+              className="mt-14 grid grid-cols-2 gap-4 border-t-2 border-foreground pt-6 md:grid-cols-4"
+            >
+              {[
+                { k: "3", v: "questions to start" },
+                { k: "5", v: "node clusters drawn" },
+                { k: "∞", v: "drag-drop iterations" },
+                { k: "0", v: "boilerplate" },
+              ].map((s) => (
+                <div key={s.v}>
+                  <div className="font-display text-4xl font-bold text-foreground">{s.k}</div>
+                  <div className="label-caps mt-1">{s.v}</div>
+                </div>
+              ))}
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Hero */}
-      <section className="container border-b border-foreground/15 py-16 md:py-24">
-        <div className="mx-auto max-w-5xl text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="label-caps mb-6"
-          >
-            ※ A Quarterly Companion to Systems Thinking ※
-          </motion.div>
+      {/* HOW IT WORKS — three index cards */}
+      <section id="how" className="border-b-2 border-foreground bg-grid-fine">
+        <div className="container py-20 md:py-24">
+          <div className="mb-12 flex items-baseline justify-between border-b-2 border-foreground pb-4">
+            <h2 className="font-display text-3xl font-bold md:text-5xl">
+              The loop<span className="text-accent">.</span>
+            </h2>
+            <span className="label-caps">3 moves · then repeat</span>
+          </div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            className="font-display text-5xl font-medium leading-[0.95] tracking-tight md:text-7xl lg:text-[6.5rem]"
-          >
-            On the Architecture
+          <div className="grid gap-8 md:grid-cols-3">
+            {[
+              {
+                tag: "01 / interview",
+                title: "answer 3 dumb questions",
+                body: "What's the idea? Who's it for? What does a user actually do? That's it. No schema-speak.",
+                color: "bg-secondary",
+                rot: "-rotate-1",
+              },
+              {
+                tag: "02 / draft",
+                title: "get a working diagram",
+                body: "Frontend, backend, APIs, db, AI — drawn for you, clustered, annotated. Click any box for the why.",
+                color: "bg-card",
+                rot: "rotate-1",
+              },
+              {
+                tag: "03 / interrogate",
+                title: "argue with a mentor",
+                body: "PM, engineer, ethicist. Each grills your design from a different angle. Earn pts, fix gaps, ship.",
+                color: "bg-accent text-accent-foreground",
+                rot: "-rotate-1",
+              },
+            ].map((c, i) => (
+              <motion.article
+                key={c.tag}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.4, delay: i * 0.08 }}
+                className={`group relative border-2 border-foreground p-7 shadow-stamp transition-spring hover:-translate-y-1 hover:shadow-stamp-lg ${c.color} ${c.rot}`}
+              >
+                <div className="mb-4 inline-block border-2 border-foreground bg-background px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-foreground">
+                  {c.tag}
+                </div>
+                <h3 className="font-display text-2xl font-bold leading-tight">{c.title}</h3>
+                <p className="mt-3 font-display text-base leading-relaxed opacity-80">{c.body}</p>
+              </motion.article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* THE THREE LENSES */}
+      <section className="border-b-2 border-foreground">
+        <div className="container py-20 md:py-24">
+          <div className="grid gap-12 md:grid-cols-[1fr_2fr]">
+            <div>
+              <div className="label-caps mb-4">— roleplay mode —</div>
+              <h2 className="font-display text-4xl font-bold leading-tight md:text-5xl">
+                One idea.
+                <br />
+                Three <span className="font-editorial italic text-primary">very</span>{" "}
+                <span className="highlight-marker">opinionated</span> coworkers.
+              </h2>
+              <p className="mt-5 font-display text-lg text-muted-foreground">
+                Switch hats. Each role hands you a different stack of objections —
+                the kind you'd actually hear in a sprint planning meeting.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {[
+                {
+                  icon: Users,
+                  role: "the PM",
+                  q: "which feature ships first — and what are you cutting?",
+                  pts: "+10 per sharp call",
+                  bg: "bg-secondary",
+                },
+                {
+                  icon: Cpu,
+                  role: "the engineer",
+                  q: "okay, 50k users hit it tuesday at 8pm. where does it crack?",
+                  pts: "GPU? queues? caches? defend.",
+                  bg: "bg-card",
+                },
+                {
+                  icon: ShieldCheck,
+                  role: "the ethicist",
+                  q: "who's quietly excluded from version one?",
+                  pts: "lower the bias score, level up.",
+                  bg: "bg-accent/20",
+                },
+              ].map((row, i) => {
+                const Icon = row.icon;
+                return (
+                  <motion.div
+                    key={row.role}
+                    initial={{ opacity: 0, x: 12 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.35, delay: i * 0.08 }}
+                    className={`group flex items-start gap-5 border-2 border-foreground p-5 shadow-stamp-sm transition-smooth hover:shadow-stamp ${row.bg}`}
+                  >
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center border-2 border-foreground bg-background">
+                      <Icon className="h-5 w-5 text-foreground" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="label-caps">{row.role}</div>
+                      <div className="mt-1 font-display text-xl font-semibold leading-snug">
+                        "{row.q}"
+                      </div>
+                      <div className="mt-2 font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                        {row.pts}
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* DECONSTRUCTION */}
+      <section className="border-b-2 border-foreground bg-dots">
+        <div className="container py-20 md:py-24">
+          <div className="mx-auto max-w-4xl text-center">
+            <div className="label-caps mb-4">— reverse-engineering bench —</div>
+            <h2 className="font-display text-4xl font-bold leading-tight md:text-6xl">
+              Take apart{" "}
+              <span className="font-editorial italic text-primary">instagram</span>.
+              <br />
+              <span className="highlight-pink">guess the stack.</span> earn pts.
+            </h2>
+            <p className="mx-auto mt-6 max-w-2xl font-display text-lg text-muted-foreground">
+              Pick a specimen. The platform asks what you'd reach for — CDN? sharded
+              postgres? vector db? — and tells you, gently, when you're wrong.
+            </p>
+
+            <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
+              {["instagram", "tinder", "uber", "spotify", "doordash", "discord"].map((app, i) => (
+                <span
+                  key={app}
+                  className={`sticker hover-wiggle press cursor-pointer text-sm ${i % 3 === 0 ? "bg-secondary" : i % 3 === 1 ? "bg-card" : "bg-accent text-accent-foreground"}`}
+                  style={{ transform: `rotate(${(i % 2 === 0 ? -1 : 1) * (Math.random() * 3 + 1)}deg)` }}
+                >
+                  <Database className="h-3 w-3" /> {app}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FINAL CTA */}
+      <section className="border-b-2 border-foreground bg-foreground text-background">
+        <div className="container py-20 text-center md:py-28">
+          <h2 className="mx-auto max-w-3xl font-display text-4xl font-bold leading-tight md:text-6xl">
+            Stop reading{" "}
+            <span className="font-editorial italic text-secondary">"system design"</span>{" "}
+            blog posts.
             <br />
-            <em className="font-normal text-primary">of Small Ideas.</em>
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.15 }}
-            className="mx-auto mt-8 max-w-2xl font-display text-xl leading-relaxed text-muted-foreground md:text-2xl"
-          >
-            A guided studio for translating an ordinary thought into a working system —
-            with an attentive mentor, three professional lenses, and a library of worked examples.
-          </motion.p>
-
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-10 flex flex-wrap items-center justify-center gap-4"
-          >
-            <Button asChild variant="hero" size="xl">
+            <span className="text-accent">Draw one.</span>
+          </h2>
+          <p className="mx-auto mt-5 max-w-xl font-display text-lg text-background/70">
+            10 minutes from idea to first diagram. No signup. No "book a demo."
+          </p>
+          <div className="mt-10 flex flex-wrap justify-center gap-4">
+            <Button asChild variant="secondary" size="xl">
               <Link to="/onboarding">
-                Open the workbook <ArrowRight className="h-4 w-4" />
+                start building <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-            <Button asChild variant="link" size="lg">
-              <Link to="/workspace">Skip to studio →</Link>
+            <Button asChild variant="outline" size="xl" className="border-background bg-transparent text-background hover:bg-background hover:text-foreground">
+              <Link to="/workspace">just show me the studio</Link>
             </Button>
-          </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* Three columns — editorial article style */}
-      <section className="container border-b border-foreground/15 py-16 md:py-24">
-        <div className="label-caps mb-10 text-center">— The Method, in Three Parts —</div>
-
-        <div className="grid gap-12 md:grid-cols-3 md:gap-10">
-          {[
-            {
-              numeral: "I.",
-              title: "Begin in plain language.",
-              body:
-                "Three short prompts gather the shape of your idea — the audience it serves and the small choreography of its use.",
-              caps: "The interview",
-            },
-            {
-              numeral: "II.",
-              title: "Receive a first draft.",
-              body:
-                "A working architecture appears on the page, drawn from your words. Each component is annotated with its purpose, trade-offs, and worthy alternatives.",
-              caps: "The diagram",
-            },
-            {
-              numeral: "III.",
-              title: "Refine through dialogue.",
-              body:
-                "An attentive mentor remains in the margin. Three lenses — Product, Engineering, Ethics — each invite their own questions of the design.",
-              caps: "The conversation",
-            },
-          ].map((col, i) => (
-            <motion.article
-              key={col.numeral}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
-              className="border-t-2 border-foreground pt-6"
-            >
-              <div className="label-caps mb-3">{col.caps}</div>
-              <div className="mb-2 font-display text-5xl font-light text-primary">{col.numeral}</div>
-              <h3 className="mb-3 font-display text-2xl font-medium leading-snug">{col.title}</h3>
-              <p className="font-display text-base leading-relaxed text-muted-foreground">
-                {col.body}
-              </p>
-            </motion.article>
-          ))}
-        </div>
-      </section>
-
-      {/* Pull quote */}
-      <section className="container border-b border-foreground/15 py-20">
-        <figure className="mx-auto max-w-3xl text-center">
-          <span className="font-display text-7xl leading-none text-primary">“</span>
-          <blockquote className="-mt-6 font-display text-3xl font-light italic leading-snug md:text-4xl">
-            Every system begins, modestly, as a sentence. The work of the architect is to ask
-            the next question, and the next, until the sentence stands upright.
-          </blockquote>
-          <figcaption className="label-caps mt-6">— from the introduction</figcaption>
-        </figure>
-      </section>
-
-      {/* Closing CTA */}
-      <section className="container py-20 text-center">
-        <h2 className="font-display text-4xl font-medium md:text-5xl">
-          Begin a draft this afternoon.
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl font-display text-lg text-muted-foreground">
-          Three short prompts. Ten quiet minutes. One first system, drawn in your own hand.
-        </p>
-        <div className="mt-8">
-          <Button asChild variant="hero" size="xl">
-            <Link to="/onboarding">
-              Open the workbook <ArrowRight className="h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
-      </section>
-
-      <footer className="border-t border-foreground/15 bg-secondary/40 py-8">
-        <div className="container flex flex-col items-center justify-between gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground sm:flex-row">
-          <span>Archway · Vol. I · No. 001</span>
-          <span>© {new Date().getFullYear()} — printed in pixels</span>
+      <footer className="bg-background py-10">
+        <div className="container flex flex-col items-center justify-between gap-4 sm:flex-row">
+          <Logo />
+          <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            <span>built at 3am · powered by curiosity</span>
+            <span className="h-1 w-1 rounded-full bg-foreground/40" />
+            <span>© {new Date().getFullYear()}</span>
+          </div>
         </div>
       </footer>
     </div>
