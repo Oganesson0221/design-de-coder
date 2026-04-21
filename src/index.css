@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,91 +6,101 @@
 
 @layer base {
   :root {
-    /* Editorial / academic — paper, ink, oxblood */
-    --background: 38 32% 95%;          /* warm cream paper */
-    --foreground: 25 20% 12%;          /* deep ink */
+    /* Hackathon zine — graph-paper notebook, ink, highlighter */
+    --background: 46 38% 94%;          /* cream notebook paper */
+    --foreground: 220 15% 12%;         /* near-black ink */
 
-    --card: 36 40% 97%;
-    --card-foreground: 25 20% 12%;
+    --card: 44 50% 97%;                /* slightly brighter card */
+    --card-foreground: 220 15% 12%;
 
-    --popover: 36 40% 97%;
-    --popover-foreground: 25 20% 12%;
+    --popover: 44 50% 97%;
+    --popover-foreground: 220 15% 12%;
 
-    /* Oxblood — scholarly serif accent */
-    --primary: 358 55% 32%;
-    --primary-foreground: 38 32% 95%;
-    --primary-glow: 358 55% 42%;
+    /* Cobalt — pen ink accent */
+    --primary: 232 78% 42%;
+    --primary-foreground: 46 38% 96%;
+    --primary-glow: 232 90% 58%;
 
-    /* Warm parchment secondary */
-    --secondary: 36 25% 88%;
-    --secondary-foreground: 25 20% 12%;
+    /* Highlighter yellow secondary */
+    --secondary: 52 95% 75%;
+    --secondary-foreground: 220 15% 12%;
 
-    --muted: 36 20% 90%;
-    --muted-foreground: 25 12% 38%;
+    --muted: 44 25% 88%;
+    --muted-foreground: 220 10% 38%;
 
-    /* Muted ochre accent */
-    --accent: 38 35% 82%;
-    --accent-foreground: 25 25% 18%;
+    /* Risograph orange-red accent */
+    --accent: 14 88% 56%;
+    --accent-foreground: 46 38% 96%;
 
-    --destructive: 358 60% 40%;
-    --destructive-foreground: 38 32% 95%;
+    /* Marker pink for highlights */
+    --highlight: 330 85% 70%;
+    --highlight-foreground: 220 15% 12%;
 
-    --border: 30 18% 80%;
-    --input: 30 18% 80%;
-    --ring: 358 55% 32%;
+    /* Lime — "correct / shipped" */
+    --success: 88 65% 48%;
+    --success-foreground: 220 15% 12%;
 
-    --radius: 0.25rem;
+    --destructive: 4 78% 50%;
+    --destructive-foreground: 46 38% 96%;
 
-    /* Component cluster tints — desaturated, scholarly */
-    --node-frontend: 210 35% 50%;   /* slate blue */
-    --node-backend: 25 20% 25%;     /* ink brown */
-    --node-api: 38 55% 45%;         /* ochre */
-    --node-database: 150 25% 35%;   /* moss */
-    --node-ai: 358 55% 45%;         /* oxblood */
+    --border: 220 15% 12%;             /* hard ink border by default */
+    --input: 220 15% 12%;
+    --ring: 232 78% 42%;
 
-    --shadow-paper: 0 1px 2px hsl(25 20% 12% / 0.06), 0 8px 24px -12px hsl(25 20% 12% / 0.12);
-    --shadow-edge: 0 0 0 1px hsl(30 18% 80% / 0.6);
+    --radius: 0.125rem;                /* nearly-square, stamped */
 
-    --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Component cluster tints — risograph palette */
+    --node-frontend: 232 78% 42%;      /* cobalt */
+    --node-backend: 220 15% 12%;       /* ink */
+    --node-api: 14 88% 56%;            /* riso orange */
+    --node-database: 158 55% 38%;      /* botanical green */
+    --node-ai: 330 85% 60%;            /* marker pink */
 
-    --sidebar-background: 36 30% 92%;
-    --sidebar-foreground: 25 20% 12%;
-    --sidebar-primary: 358 55% 32%;
-    --sidebar-primary-foreground: 38 32% 95%;
-    --sidebar-accent: 36 25% 88%;
-    --sidebar-accent-foreground: 25 20% 12%;
-    --sidebar-border: 30 18% 80%;
-    --sidebar-ring: 358 55% 32%;
+    --shadow-stamp: 3px 3px 0 hsl(220 15% 12%);
+    --shadow-stamp-sm: 2px 2px 0 hsl(220 15% 12%);
+    --shadow-stamp-lg: 5px 5px 0 hsl(220 15% 12%);
+
+    --transition-smooth: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    --sidebar-background: 44 35% 91%;
+    --sidebar-foreground: 220 15% 12%;
+    --sidebar-primary: 232 78% 42%;
+    --sidebar-primary-foreground: 46 38% 96%;
+    --sidebar-accent: 52 95% 75%;
+    --sidebar-accent-foreground: 220 15% 12%;
+    --sidebar-border: 220 15% 12%;
+    --sidebar-ring: 232 78% 42%;
   }
 
   .dark {
-    --background: 25 18% 8%;
-    --foreground: 38 25% 90%;
-    --card: 25 18% 11%;
-    --card-foreground: 38 25% 90%;
-    --popover: 25 18% 11%;
-    --popover-foreground: 38 25% 90%;
-    --primary: 358 60% 55%;
-    --primary-foreground: 38 25% 95%;
-    --secondary: 25 15% 18%;
-    --secondary-foreground: 38 25% 90%;
-    --muted: 25 12% 16%;
-    --muted-foreground: 38 15% 65%;
-    --accent: 38 25% 22%;
-    --accent-foreground: 38 30% 85%;
-    --destructive: 358 60% 50%;
-    --destructive-foreground: 38 25% 95%;
-    --border: 25 15% 22%;
-    --input: 25 15% 22%;
-    --ring: 358 60% 55%;
-    --sidebar-background: 25 18% 10%;
-    --sidebar-foreground: 38 25% 90%;
-    --sidebar-primary: 358 60% 55%;
-    --sidebar-primary-foreground: 38 25% 95%;
-    --sidebar-accent: 25 15% 18%;
-    --sidebar-accent-foreground: 38 25% 90%;
-    --sidebar-border: 25 15% 22%;
-    --sidebar-ring: 358 60% 55%;
+    --background: 220 18% 8%;
+    --foreground: 46 30% 92%;
+    --card: 220 18% 11%;
+    --card-foreground: 46 30% 92%;
+    --popover: 220 18% 11%;
+    --popover-foreground: 46 30% 92%;
+    --primary: 232 90% 65%;
+    --primary-foreground: 220 18% 8%;
+    --secondary: 52 80% 60%;
+    --secondary-foreground: 220 18% 8%;
+    --muted: 220 12% 16%;
+    --muted-foreground: 46 15% 65%;
+    --accent: 14 85% 60%;
+    --accent-foreground: 220 18% 8%;
+    --destructive: 4 78% 55%;
+    --destructive-foreground: 46 30% 92%;
+    --border: 46 30% 92%;
+    --input: 46 30% 92%;
+    --ring: 232 90% 65%;
+    --sidebar-background: 220 18% 10%;
+    --sidebar-foreground: 46 30% 92%;
+    --sidebar-primary: 232 90% 65%;
+    --sidebar-primary-foreground: 220 18% 8%;
+    --sidebar-accent: 220 12% 18%;
+    --sidebar-accent-foreground: 46 30% 92%;
+    --sidebar-border: 46 30% 92%;
+    --sidebar-ring: 232 90% 65%;
   }
 }
 
@@ -98,51 +108,131 @@
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
-    font-feature-settings: 'ss01', 'cv11';
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-feature-settings: 'ss01', 'ss02';
   }
   h1, h2, h3, h4, .font-display {
-    font-family: 'Fraunces', 'Times New Roman', serif;
-    font-optical-sizing: auto;
-    letter-spacing: -0.02em;
-    font-weight: 500;
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    letter-spacing: -0.025em;
+    font-weight: 700;
+  }
+  .font-serif, .font-editorial {
+    font-family: 'Instrument Serif', 'Times New Roman', serif;
+    letter-spacing: -0.01em;
+    font-weight: 400;
   }
   .font-mono {
     font-family: 'JetBrains Mono', ui-monospace, monospace;
   }
+  ::selection {
+    background: hsl(var(--secondary));
+    color: hsl(var(--foreground));
+  }
 }
 
 @layer utilities {
-  /* Subtle paper grain */
+  /* Graph-paper notebook background */
   .bg-paper {
     background-color: hsl(var(--background));
     background-image:
-      radial-gradient(hsl(var(--foreground) / 0.025) 1px, transparent 1px),
-      radial-gradient(hsl(var(--foreground) / 0.02) 1px, transparent 1px);
-    background-size: 3px 3px, 7px 7px;
-    background-position: 0 0, 1px 2px;
+      linear-gradient(hsl(var(--foreground) / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: -1px -1px;
+  }
+  .bg-grid-fine {
+    background-color: hsl(var(--background));
+    background-image:
+      linear-gradient(hsl(var(--foreground) / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--foreground) / 0.04) 1px, transparent 1px);
+    background-size: 8px 8px;
+  }
+  .bg-dots {
+    background-color: hsl(var(--background));
+    background-image: radial-gradient(hsl(var(--foreground) / 0.18) 1px, transparent 1px);
+    background-size: 16px 16px;
   }
   .bg-rule {
-    background-image: linear-gradient(to bottom, hsl(var(--foreground) / 0.06) 1px, transparent 1px);
+    background-image: linear-gradient(to bottom, hsl(var(--foreground) / 0.08) 1px, transparent 1px);
     background-size: 100% 1.6rem;
   }
-  .shadow-paper { box-shadow: var(--shadow-paper); }
-  .shadow-edge { box-shadow: var(--shadow-edge); }
-  .transition-smooth { transition: var(--transition-smooth); }
 
-  /* Editorial small caps section label */
+  /* Hard-stamp shadows — that hackathon zine feel */
+  .shadow-stamp { box-shadow: var(--shadow-stamp); }
+  .shadow-stamp-sm { box-shadow: var(--shadow-stamp-sm); }
+  .shadow-stamp-lg { box-shadow: var(--shadow-stamp-lg); }
+  .shadow-stamp-primary { box-shadow: 3px 3px 0 hsl(var(--primary)); }
+  .shadow-stamp-accent { box-shadow: 3px 3px 0 hsl(var(--accent)); }
+
+  .transition-smooth { transition: var(--transition-smooth); }
+  .transition-spring { transition: var(--transition-spring); }
+
+  /* Press-down interaction */
+  .press {
+    @apply transition-smooth;
+  }
+  .press:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 hsl(var(--foreground)); }
+  .press:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 hsl(var(--foreground)); }
+
+  /* Mono caps tag */
   .label-caps {
     @apply font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground;
   }
 
+  /* Highlighter marker effect */
+  .highlight-marker {
+    background: linear-gradient(180deg, transparent 55%, hsl(var(--secondary)) 55%, hsl(var(--secondary)) 92%, transparent 92%);
+    padding: 0 0.15em;
+  }
+  .highlight-pink {
+    background: linear-gradient(180deg, transparent 55%, hsl(var(--highlight) / 0.7) 55%, hsl(var(--highlight) / 0.7) 92%, transparent 92%);
+    padding: 0 0.15em;
+  }
+  .highlight-accent {
+    background: linear-gradient(180deg, transparent 55%, hsl(var(--accent) / 0.45) 55%, hsl(var(--accent) / 0.45) 92%, transparent 92%);
+    padding: 0 0.15em;
+  }
+
+  /* Sticker badge */
+  .sticker {
+    @apply inline-flex items-center gap-1.5 border-2 border-foreground bg-card px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] shadow-stamp-sm;
+  }
+
+  /* Tape strip — for "pinned" / decorative */
+  .tape-top::before {
+    content: "";
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    width: 80px;
+    height: 22px;
+    background: hsl(var(--secondary) / 0.85);
+    transform: translateX(-50%) rotate(-2deg);
+    box-shadow: 0 1px 2px hsl(var(--foreground) / 0.15);
+  }
+
+  /* Hand-drawn dashed border */
+  .border-sketch {
+    border: 2px dashed hsl(var(--foreground));
+  }
+
   /* Drop cap helper */
   .drop-cap::first-letter {
-    font-family: 'Fraunces', serif;
+    font-family: 'Instrument Serif', serif;
     font-size: 4.5rem;
     line-height: 0.85;
-    font-weight: 700;
+    font-weight: 400;
     float: left;
     padding: 0.4rem 0.6rem 0 0;
     color: hsl(var(--primary));
+    font-style: italic;
   }
+
+  /* Subtle wiggle for stickers on hover */
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(-1.5deg); }
+    75% { transform: rotate(1.5deg); }
+  }
+  .hover-wiggle:hover { animation: wiggle 0.4s ease-in-out; }
 }
