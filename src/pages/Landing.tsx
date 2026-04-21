@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles, Github, Cpu, Database, ShieldCheck, Users } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
+import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 
 const Landing = () => {
