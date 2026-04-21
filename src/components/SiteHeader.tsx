@@ -2,6 +2,7 @@ import { Logo } from "./Logo";
 import { Button } from "./ui/button";
 import { NavLink } from "./NavLink";
 import { Link } from "react-router-dom";
+import { PointsHUD } from "./PointsHUD";
 
 export const SiteHeader = () => (
   <header className="sticky top-0 z-40 border-b-2 border-foreground bg-background/90 backdrop-blur">
@@ -12,6 +13,8 @@ export const SiteHeader = () => (
           { to: "/workspace", label: "Build" },
           { to: "/workspace?tab=learn", label: "Roleplay" },
           { to: "/workspace?tab=deconstruct", label: "Reverse-eng" },
+          { to: "/community", label: "Community" },
+          { to: "/mentor", label: "Mentors" },
         ].map((l) => (
           <NavLink
             key={l.label}
@@ -24,10 +27,7 @@ export const SiteHeader = () => (
         ))}
       </nav>
       <div className="flex items-center gap-2">
-        <span className="hidden sticker hover-wiggle md:inline-flex">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
-          live
-        </span>
+        <PointsHUD />
         <Button asChild variant="hero" size="sm">
           <Link to="/onboarding">ship it →</Link>
         </Button>
