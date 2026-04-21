@@ -21,10 +21,25 @@ export interface OnboardingAnswers {
   flow: string;
 }
 
+export type Badge =
+  | "first-draft"
+  | "scale-thinker"
+  | "bias-buster"
+  | "deconstructor"
+  | "mentor"
+  | "she-builds"
+  | "community-voice";
+
 interface ProjectState {
   onboarded: boolean;
   answers: OnboardingAnswers;
   components: ArchComponent[];
+  points: number;
+  badges: Badge[];
+  womanInTeam: boolean;
+  setWomanInTeam: (v: boolean) => void;
+  awardPoints: (n: number, reason?: string) => void;
+  awardBadge: (b: Badge) => void;
   setAnswers: (a: OnboardingAnswers) => void;
   setOnboarded: (v: boolean) => void;
   moveComponent: (id: string, x: number, y: number) => void;
@@ -139,6 +154,18 @@ export const useProject = create<ProjectState>((set) => ({
   onboarded: false,
   answers: empty,
   components: [],
+  points: 0,
+  badges: [],
+  womanInTeam: false,
+  setWomanInTeam: (v) =>
+    set((s) => ({
+      womanInTeam: v,
+      points: v && !s.womanInTeam ? s.points + 50 : s.points,
+      badges: v && !s.badges.includes("she-builds") ? [...s.badges, "she-builds"] : s.badges,
+    })),
+  awardPoints: (n) => set((s) => ({ points: s.points + n })),
+  awardBadge: (b) =>
+    set((s) => (s.badges.includes(b) ? s : { badges: [...s.badges, b] })),
   setAnswers: (a) => set({ answers: a, components: generateInitialArchitecture(a) }),
   setOnboarded: (v) => set({ onboarded: v }),
   moveComponent: (id, x, y) =>
@@ -146,5 +173,6 @@ export const useProject = create<ProjectState>((set) => ({
   removeComponent: (id) =>
     set((s) => ({ components: s.components.filter((c) => c.id !== id) })),
   addComponent: (c) => set((s) => ({ components: [...s.components, c] })),
-  reset: () => set({ onboarded: false, answers: empty, components: [] }),
+  reset: () =>
+    set({ onboarded: false, answers: empty, components: [], points: 0, badges: [], womanInTeam: false }),
 }));
