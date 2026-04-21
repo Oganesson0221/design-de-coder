@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProject } from "@/stores/project";
-import { Button } from "@/components/ui/button";
 import { Check, Award } from "lucide-react";
 import { toast } from "sonner";
+import { BiasDetector } from "./bias-detector";
 
 type Role = "pm" | "engineer" | "ethicist";
 
@@ -62,27 +62,6 @@ const ENG_EXERCISES = (idea: string): Exercise[] => [
   },
 ];
 
-const ETHICS_EXERCISES = (idea: string): Exercise[] => [
-  {
-    prompt: `Who is most likely to be excluded from the first version of "${idea || "your idea"}"?`,
-    hint: "Consider those who do not show up in your imagined user — by language, ability, schedule, or trust.",
-    options: [
-      { text: "People without a smartphone or steady internet", correct: true, feedback: "A common omission. Consider an SMS or printed fallback for the first month." },
-      { text: "Frequent power-users who want shortcuts", correct: false, feedback: "They will adapt. The harm here is small." },
-      { text: "Investors reviewing the demo", correct: false, feedback: "A different kind of audience — not the ethics question." },
-    ],
-  },
-  {
-    prompt: "Where might the system encode an unfair assumption?",
-    hint: "Look at what it asks of users by default — names, addresses, payment methods, gender.",
-    options: [
-      { text: "Requiring a credit card for sign-up", correct: true, feedback: "Yes — this quietly excludes anyone unbanked or wary of a new service." },
-      { text: "Offering a dark-mode toggle", correct: false, feedback: "A preference, not an injustice." },
-      { text: "Logging timestamps in UTC", correct: false, feedback: "A convention that affects no one's dignity." },
-    ],
-  },
-];
-
 const RoleLearning = () => {
   const idea = useProject((s) => s.answers.idea);
   const [role, setRole] = useState<Role>("pm");
@@ -90,9 +69,7 @@ const RoleLearning = () => {
   const [answered, setAnswered] = useState<Record<string, number>>({});
 
   const exercises =
-    role === "pm" ? PM_EXERCISES(idea) : role === "engineer" ? ENG_EXERCISES(idea) : ETHICS_EXERCISES(idea);
-
-  const biasScore = role === "ethicist" ? Math.max(38, 78 - Object.keys(answered).filter((k) => k.startsWith("ethicist")).length * 12) : null;
+    role === "pm" ? PM_EXERCISES(idea) : ENG_EXERCISES(idea);
 
   const choose = (qIndex: number, optIndex: number) => {
     const key = `${role}-${qIndex}`;
@@ -157,120 +134,102 @@ const RoleLearning = () => {
           })}
         </div>
 
-        {/* Bias score for ethicist */}
-        {role === "ethicist" && biasScore !== null && (
-          <div className="mb-8 border border-foreground/20 bg-card p-5">
-            <div className="flex items-baseline justify-between">
-              <div className="label-caps">Bias score · current draft</div>
-              <span className={`font-display text-3xl font-medium ${biasScore > 60 ? "text-destructive" : biasScore > 40 ? "text-primary" : "text-foreground"}`}>
-                {biasScore}/100
-              </span>
-            </div>
-            <div className="mt-3 h-1.5 w-full overflow-hidden bg-muted">
+        {/* Bias Detector for ethicist role */}
+        {role === "ethicist" ? (
+          <BiasDetector />
+        ) : (
+          <>
+            {/* Exercises for PM and Engineer roles */}
+            <AnimatePresence mode="wait">
               <motion.div
-                key={biasScore}
-                initial={{ width: 0 }}
-                animate={{ width: `${biasScore}%` }}
-                transition={{ duration: 0.6 }}
-                className={`h-full ${biasScore > 60 ? "bg-destructive" : biasScore > 40 ? "bg-primary" : "bg-foreground"}`}
-              />
-            </div>
-            <p className="mt-3 font-display text-sm italic leading-relaxed text-muted-foreground">
-              Derived from assumptions in your audience description and the absence of inclusive provisions in the diagram.
-              Each correct reflection below lowers the score.
-            </p>
-          </div>
-        )}
-
-        {/* Exercises */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={role}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.25 }}
-            className="space-y-10"
-          >
-            <div className="label-caps">— Exercises with {activeRole.label.toLowerCase()} —</div>
-
-            {exercises.map((ex, qi) => {
-              const key = `${role}-${qi}`;
-              const chosen = answered[key];
-              return (
-                <article key={qi} className="border-t border-foreground/15 pt-6">
-                  <div className="flex items-baseline gap-4">
-                    <span className="font-display text-3xl text-primary">§{qi + 1}</span>
-                    <div className="flex-1">
-                      <h3 className="font-display text-2xl font-medium leading-snug">{ex.prompt}</h3>
-                      <p className="mt-2 font-display text-sm italic text-muted-foreground">{ex.hint}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 space-y-2">
-                    {ex.options.map((opt, oi) => {
-                      const isChosen = chosen === oi;
-                      const reveal = chosen !== undefined;
-                      const correct = reveal && opt.correct;
-                      const wrongChoice = reveal && isChosen && !opt.correct;
-                      return (
-                        <button
-                          key={oi}
-                          onClick={() => choose(qi, oi)}
-                          disabled={reveal}
-                          className={`flex w-full items-start gap-3 border p-4 text-left transition-smooth ${
-                            correct
-                              ? "border-foreground bg-secondary"
-                              : wrongChoice
-                              ? "border-destructive/50 bg-destructive/5"
-                              : reveal
-                              ? "border-foreground/15 opacity-60"
-                              : "border-foreground/20 hover:border-foreground hover:bg-secondary/50"
-                          }`}
-                        >
-                          <span className="mt-0.5 font-mono text-xs text-muted-foreground">
-                            {String.fromCharCode(97 + oi)}.
-                          </span>
-                          <span className="flex-1 font-display text-base text-foreground">{opt.text}</span>
-                          {correct && <Check className="mt-0.5 h-4 w-4 text-foreground" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {chosen !== undefined && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-4 border-l-2 border-primary bg-secondary/40 p-4"
-                    >
-                      <div className="label-caps mb-1">— Mentor's note —</div>
-                      <p className="font-display text-base italic leading-relaxed text-foreground/85">
-                        {ex.options[chosen].feedback}
-                      </p>
-                    </motion.div>
-                  )}
-                </article>
-              );
-            })}
-
-            {Object.keys(answered).filter((k) => k.startsWith(role)).length === exercises.length && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex items-center gap-4 border-2 border-foreground bg-card p-5"
+                key={role}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-10"
               >
-                <Award className="h-8 w-8 text-primary" />
-                <div>
-                  <div className="font-display text-lg font-medium">Chapter complete.</div>
-                  <p className="font-display text-sm italic text-muted-foreground">
-                    Carry these questions back to the workspace — your design will be the better for them.
-                  </p>
-                </div>
+                <div className="label-caps">— Exercises with {activeRole.label.toLowerCase()} —</div>
+
+                {exercises.map((ex, qi) => {
+                  const key = `${role}-${qi}`;
+                  const chosen = answered[key];
+                  return (
+                    <article key={qi} className="border-t border-foreground/15 pt-6">
+                      <div className="flex items-baseline gap-4">
+                        <span className="font-display text-3xl text-primary">§{qi + 1}</span>
+                        <div className="flex-1">
+                          <h3 className="font-display text-2xl font-medium leading-snug">{ex.prompt}</h3>
+                          <p className="mt-2 font-display text-sm italic text-muted-foreground">{ex.hint}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 space-y-2">
+                        {ex.options.map((opt, oi) => {
+                          const isChosen = chosen === oi;
+                          const reveal = chosen !== undefined;
+                          const correct = reveal && opt.correct;
+                          const wrongChoice = reveal && isChosen && !opt.correct;
+                          return (
+                            <button
+                              key={oi}
+                              onClick={() => choose(qi, oi)}
+                              disabled={reveal}
+                              className={`flex w-full items-start gap-3 border p-4 text-left transition-smooth ${
+                                correct
+                                  ? "border-foreground bg-secondary"
+                                  : wrongChoice
+                                  ? "border-destructive/50 bg-destructive/5"
+                                  : reveal
+                                  ? "border-foreground/15 opacity-60"
+                                  : "border-foreground/20 hover:border-foreground hover:bg-secondary/50"
+                              }`}
+                            >
+                              <span className="mt-0.5 font-mono text-xs text-muted-foreground">
+                                {String.fromCharCode(97 + oi)}.
+                              </span>
+                              <span className="flex-1 font-display text-base text-foreground">{opt.text}</span>
+                              {correct && <Check className="mt-0.5 h-4 w-4 text-foreground" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {chosen !== undefined && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mt-4 border-l-2 border-primary bg-secondary/40 p-4"
+                        >
+                          <div className="label-caps mb-1">— Mentor's note —</div>
+                          <p className="font-display text-base italic leading-relaxed text-foreground/85">
+                            {ex.options[chosen].feedback}
+                          </p>
+                        </motion.div>
+                      )}
+                    </article>
+                  );
+                })}
+
+                {Object.keys(answered).filter((k) => k.startsWith(role)).length === exercises.length && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-4 border-2 border-foreground bg-card p-5"
+                  >
+                    <Award className="h-8 w-8 text-primary" />
+                    <div>
+                      <div className="font-display text-lg font-medium">Chapter complete.</div>
+                      <p className="font-display text-sm italic text-muted-foreground">
+                        Carry these questions back to the workspace — your design will be the better for them.
+                      </p>
+                    </div>
+                  </motion.div>
+                )}
               </motion.div>
-            )}
-          </motion.div>
-        </AnimatePresence>
+            </AnimatePresence>
+          </>
+        )}
       </div>
     </div>
   );
