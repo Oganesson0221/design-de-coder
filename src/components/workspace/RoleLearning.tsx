@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProject } from "@/stores/project";
-import { Button } from "@/components/ui/button";
 import { Check, Award } from "lucide-react";
 import { toast } from "sonner";
+import EngineerWorkbench from "@/components/workspace/EngineerWorkbench";
 
 type Role = "pm" | "engineer" | "ethicist";
 
@@ -40,28 +40,6 @@ const PM_EXERCISES = (idea: string): Exercise[] => [
   },
 ];
 
-const ENG_EXERCISES = (idea: string): Exercise[] => [
-  {
-    prompt: `"${idea || "Your idea"}" reaches 50,000 daily users. Where does the system strain first?`,
-    hint: "Think about what runs on every request, and what cannot be cached easily.",
-    options: [
-      { text: "The frontend bundle size", correct: false, feedback: "A real concern, but rarely the first wall you hit at this scale." },
-      { text: "Synchronous database writes during peak hours", correct: true, feedback: "Quite right — writes serialise. This is where queues and workers earn their keep." },
-      { text: "The favicon request volume", correct: false, feedback: "A charming red herring." },
-      { text: "TLS handshake overhead", correct: false, feedback: "Modern stacks handle this gracefully — look elsewhere." },
-    ],
-  },
-  {
-    prompt: "Do you need GPUs for this system?",
-    hint: "GPUs accelerate parallel arithmetic — chiefly machine-learning inference and graphics.",
-    options: [
-      { text: "Yes — every modern app uses GPUs.", correct: false, feedback: "Most apps run quite well without them. GPUs serve a specific kind of work." },
-      { text: "Only if a feature requires real-time ML inference at volume.", correct: true, feedback: "Precisely. Until then, CPU compute and a managed inference API will do." },
-      { text: "No — GPUs are only for video games.", correct: false, feedback: "An older view. Inference at scale is the modern case." },
-    ],
-  },
-];
-
 const ETHICS_EXERCISES = (idea: string): Exercise[] => [
   {
     prompt: `Who is most likely to be excluded from the first version of "${idea || "your idea"}"?`,
@@ -89,8 +67,7 @@ const RoleLearning = () => {
   const [points, setPoints] = useState(0);
   const [answered, setAnswered] = useState<Record<string, number>>({});
 
-  const exercises =
-    role === "pm" ? PM_EXERCISES(idea) : role === "engineer" ? ENG_EXERCISES(idea) : ETHICS_EXERCISES(idea);
+  const exercises = role === "pm" ? PM_EXERCISES(idea) : ETHICS_EXERCISES(idea);
 
   const biasScore = role === "ethicist" ? Math.max(38, 78 - Object.keys(answered).filter((k) => k.startsWith("ethicist")).length * 12) : null;
 
@@ -109,11 +86,47 @@ const RoleLearning = () => {
 
   const activeRole = ROLES.find((r) => r.id === role)!;
 
+  if (role === "engineer") {
+    return (
+      <div className="h-full flex flex-col bg-paper">
+        <div className="shrink-0 border-b border-foreground/15 px-4 py-3">
+          <div className="grid gap-px border border-foreground/20 bg-foreground/20 md:grid-cols-3">
+            {ROLES.map((r) => {
+              const active = role === r.id;
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => setRole(r.id)}
+                  className={`group p-3 text-left transition-smooth ${
+                    active ? "bg-foreground text-background" : "bg-card hover:bg-secondary"
+                  }`}
+                >
+                  <div className="flex items-baseline gap-2">
+                    <span className={`font-display text-xl ${active ? "text-background/70" : "text-primary"}`}>{r.numeral}</span>
+                    <div>
+                      <div className="font-display text-base font-medium">{r.label}</div>
+                      <div className={`mt-0.5 font-display text-xs italic ${active ? "text-background/80" : "text-muted-foreground"}`}>
+                        {r.tagline}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 p-4">
+          <EngineerWorkbench />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full overflow-y-auto bg-paper">
-      <div className="container max-w-5xl py-10">
+      <div className={`${role === "engineer" ? "h-full flex flex-col" : "container max-w-5xl py-10"}`}>
         {/* Header */}
-        <div className="mb-10 border-b-2 border-foreground pb-6">
+        <div className={`${role === "engineer" ? "px-5 pt-5 pb-4 border-b-2 border-foreground" : "mb-10 border-b-2 border-foreground pb-6"}`}>
           <div className="flex items-baseline justify-between">
             <div>
               <div className="label-caps mb-2">Chapter Two</div>
@@ -132,7 +145,7 @@ const RoleLearning = () => {
         </div>
 
         {/* Role tabs */}
-        <div className="mb-10 grid gap-px border border-foreground/20 bg-foreground/20 md:grid-cols-3">
+        <div className={`${role === "engineer" ? "px-5 pt-4 pb-3 grid gap-px border-b border-foreground/15 bg-paper md:grid-cols-3" : "mb-10 grid gap-px border border-foreground/20 bg-foreground/20 md:grid-cols-3"}`}>
           {ROLES.map((r) => {
             const active = role === r.id;
             return (
@@ -182,8 +195,14 @@ const RoleLearning = () => {
           </div>
         )}
 
+        {role === "engineer" && (
+          <div className="flex-1 min-h-0 px-5 pb-5">
+            <EngineerWorkbench />
+          </div>
+        )}
+
         {/* Exercises */}
-        <AnimatePresence mode="wait">
+        {role !== "engineer" && <AnimatePresence mode="wait">
           <motion.div
             key={role}
             initial={{ opacity: 0, y: 8 }}
@@ -270,7 +289,7 @@ const RoleLearning = () => {
               </motion.div>
             )}
           </motion.div>
-        </AnimatePresence>
+        </AnimatePresence>}
       </div>
     </div>
   );
