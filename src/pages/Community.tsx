@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowBigUp,
@@ -18,10 +18,12 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useProject } from "@/stores/project";
+import { listEngineerProjects } from "@/services/engineerApi";
 import { toast } from "sonner";
 
 interface Post {
   id: string;
+  projectId?: string;
   title: string;
   author: { handle: string; avatar: string; isWoman: boolean };
   description: string;
@@ -120,6 +122,7 @@ const SEED_POSTS: Post[] = [
 type Sort = "hot" | "new" | "top";
 
 const Community = () => {
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>(SEED_POSTS);
   const [sort, setSort] = useState<Sort>("hot");
   const [filter, setFilter] = useState<string | null>(null);
@@ -127,6 +130,48 @@ const Community = () => {
   const [forked, setForked] = useState<Record<string, boolean>>({});
   const awardPoints = useProject((s) => s.awardPoints);
   const awardBadge = useProject((s) => s.awardBadge);
+  const setOnboarded = useProject((s) => s.setOnboarded);
+
+  useEffect(() => {
+    let mounted = true;
+    async function hydrateFromDb() {
+      try {
+        const response = await listEngineerProjects();
+        if (!mounted) return;
+        const dbPosts: Post[] = (response.projects || []).map((project) => ({
+          id: `db-${project.projectId}`,
+          projectId: project.projectId,
+          title: project.title || project.projectId,
+          author: { handle: "@straightup.db", avatar: "DB", isWoman: false },
+          description:
+            "Imported from straightup.projects. Fork to open this project in your build workspace and continue iterating.",
+          tags: ["imported", "straightup", "community"],
+          upvotes: 0,
+          comments: 0,
+          forks: 0,
+          stars: 0,
+          views: 0,
+          ago: project.updatedAt ? "recent" : "from db",
+          diagram: "[project] → [architecture] → [schema]",
+        }));
+
+        setPosts((prev) => {
+          const existingIds = new Set(prev.map((p) => p.id));
+          const merged = [...prev];
+          for (const p of dbPosts) {
+            if (!existingIds.has(p.id)) merged.push(p);
+          }
+          return merged;
+        });
+      } catch {
+        // Keep seed feed if DB listing is unavailable.
+      }
+    }
+    void hydrateFromDb();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const upvote = (id: string) => {
     if (voted[id]) return;
@@ -143,6 +188,12 @@ const Community = () => {
     setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, forks: p.forks + 1 } : p)));
     awardPoints(15);
     toast("+15 pts · forked into your studio");
+
+    const target = posts.find((p) => p.id === id);
+    if (target?.projectId) {
+      setOnboarded(true);
+      navigate(`/workspace?tab=learn&projectId=${encodeURIComponent(target.projectId)}`);
+    }
   };
 
   const allTags = Array.from(new Set(posts.flatMap((p) => p.tags)));
