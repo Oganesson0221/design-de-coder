@@ -89,15 +89,15 @@ const RoleLearning = () => {
   if (role === "engineer") {
     return (
       <div className="h-full flex flex-col bg-paper">
-        <div className="shrink-0 border-b border-foreground/15 px-4 py-3">
-          <div className="grid gap-px border border-foreground/20 bg-foreground/20 md:grid-cols-3">
+        <div className="shrink-0 border-b border-foreground/15 px-0 py-0">
+          <div className="grid w-full grid-cols-3 gap-px border-y border-foreground/20 bg-foreground/20">
             {ROLES.map((r) => {
               const active = role === r.id;
               return (
                 <button
                   key={r.id}
                   onClick={() => setRole(r.id)}
-                  className={`group p-3 text-left transition-smooth ${
+                  className={`group min-w-0 p-3 text-left transition-smooth ${
                     active ? "bg-foreground text-background" : "bg-card hover:bg-secondary"
                   }`}
                 >
@@ -115,7 +115,7 @@ const RoleLearning = () => {
             })}
           </div>
         </div>
-        <div className="flex-1 min-h-0 p-4">
+        <div className="flex-1 min-h-0 p-0">
           <EngineerWorkbench />
         </div>
       </div>
@@ -124,7 +124,7 @@ const RoleLearning = () => {
 
   return (
     <div className="h-full overflow-y-auto bg-paper">
-      <div className={`${role === "engineer" ? "h-full flex flex-col" : "container max-w-5xl py-10"}`}>
+      <div className={`${role === "engineer" ? "h-full flex flex-col" : "w-full px-5 py-10"}`}>
         {/* Header */}
         <div className={`${role === "engineer" ? "px-5 pt-5 pb-4 border-b-2 border-foreground" : "mb-10 border-b-2 border-foreground pb-6"}`}>
           <div className="flex items-baseline justify-between">
@@ -145,14 +145,14 @@ const RoleLearning = () => {
         </div>
 
         {/* Role tabs */}
-        <div className={`${role === "engineer" ? "px-5 pt-4 pb-3 grid gap-px border-b border-foreground/15 bg-paper md:grid-cols-3" : "mb-10 grid gap-px border border-foreground/20 bg-foreground/20 md:grid-cols-3"}`}>
+        <div className={`${role === "engineer" ? "px-5 pt-4 pb-3 grid w-full grid-cols-3 gap-px border-b border-foreground/15 bg-paper" : "mb-10 grid w-full grid-cols-3 gap-px border border-foreground/20 bg-foreground/20"}`}>
           {ROLES.map((r) => {
             const active = role === r.id;
             return (
               <button
                 key={r.id}
                 onClick={() => setRole(r.id)}
-                className={`group p-5 text-left transition-smooth ${
+                className={`group min-w-0 p-5 text-left transition-smooth ${
                   active ? "bg-foreground text-background" : "bg-card hover:bg-secondary"
                 }`}
               >
@@ -196,7 +196,7 @@ const RoleLearning = () => {
         )}
 
         {role === "engineer" && (
-          <div className="flex-1 min-h-0 px-5 pb-5">
+          <div className="flex-1 min-h-0 px-0 pb-0">
             <EngineerWorkbench />
           </div>
         )}

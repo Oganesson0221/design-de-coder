@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import OpenAI from "openai";
 
 const app = express();
@@ -18,6 +18,7 @@ const mongo = new MongoClient(mongoUri);
 const openai = openAiApiKey ? new OpenAI({ apiKey: openAiApiKey }) : null;
 let db;
 let sessions;
+let projects;
 
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
@@ -40,6 +41,98 @@ function makeRequirementsMarkdown({ idea = "", audience = "", flow = "" }) {
     flow || "N/A",
     "",
   ].join("\n");
+}
+
+function normalizeProjectId(value) {
+  return String(value || "").trim();
+}
+
+function toMarkdownFromObject(value) {
+  if (!value || typeof value !== "object") return "";
+  const orderedKeys = [
+    "title",
+    "overview",
+    "problem",
+    "solution",
+    "goals",
+    "nonGoals",
+    "scope",
+    "users",
+    "flows",
+    "requirements",
+  ];
+  const keys = [...new Set([...orderedKeys, ...Object.keys(value)])];
+  const sections = [];
+  for (const key of keys) {
+    const sectionValue = value[key];
+    if (sectionValue == null || sectionValue === "") continue;
+    if (Array.isArray(sectionValue)) {
+      if (sectionValue.length === 0) continue;
+      sections.push(`## ${key}\n${sectionValue.map((x) => `- ${String(x)}`).join("\n")}`);
+      continue;
+    }
+    if (typeof sectionValue === "object") {
+      const lines = Object.entries(sectionValue)
+        .map(([k, v]) => `- ${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
+        .join("\n");
+      if (lines) sections.push(`## ${key}\n${lines}`);
+      continue;
+    }
+    sections.push(`## ${key}\n${String(sectionValue)}`);
+  }
+  return sections.join("\n\n").trim();
+}
+
+function extractRequirementsFromProjectDoc(projectDoc) {
+  if (!projectDoc || typeof projectDoc !== "object") return "";
+  const candidate =
+    projectDoc.requirementDoc ??
+    projectDoc.requirement_docs ??
+    projectDoc.requirementDocs ??
+    projectDoc.requirementsDoc ??
+    projectDoc.requirements_docs ??
+    projectDoc.requirementsMarkdown ??
+    projectDoc.requirements ??
+    projectDoc.prd ??
+    projectDoc.finalPRD ??
+    "";
+  if (typeof candidate === "string") return candidate.trim();
+  if (candidate && typeof candidate === "object") return toMarkdownFromObject(candidate);
+  return "";
+}
+
+function extractProjectTitle(projectDoc, fallbackProjectId) {
+  if (!projectDoc || typeof projectDoc !== "object") return fallbackProjectId;
+  return (
+    String(
+      projectDoc.title ||
+        projectDoc.name ||
+        projectDoc.projectName ||
+        projectDoc.idea ||
+        fallbackProjectId,
+    ).trim() || fallbackProjectId
+  );
+}
+
+async function findProjectDocByProjectId(projectId) {
+  const normalized = normalizeProjectId(projectId);
+  if (!normalized) return null;
+  const or = [
+    { projectId: normalized },
+    { projectID: normalized },
+    { id: normalized },
+    { project_id: normalized },
+  ];
+  if (ObjectId.isValid(normalized)) {
+    try {
+      or.push({ _id: new ObjectId(normalized) });
+    } catch {
+      // ignore invalid object id parse edge-cases
+    }
+  } else {
+    or.push({ _id: normalized });
+  }
+  return projects.findOne({ $or: or });
 }
 
 function sanitizeSchema(payload) {
@@ -104,16 +197,18 @@ function mermaidFromSchema(schema) {
 }
 
 function drawioMxfileFromSchema(schema) {
-  const boxW = 560;
+  const boxW = 640;
   const headerH = 38;
   const rowH = 20;
-  const gapX = 260;
-  const gapY = 240;
-  const cols = Math.max(2, Math.min(3, Math.ceil(Math.sqrt(Math.max(1, schema.tables.length)))));
+  const gapX = 360;
+  const gapY = 300;
+  const cols = Math.max(2, Math.min(2, Math.ceil(Math.sqrt(Math.max(1, schema.tables.length)))));
 
   const cells = [];
   let cellId = 2;
   const tableToMeta = new Map();
+
+  const palette = ["#eef6ff", "#f5f3ff", "#ecfeff", "#f0fdf4", "#fff7ed"];
 
   schema.tables.forEach((table, i) => {
     const col = i % cols;
@@ -154,9 +249,9 @@ function drawioMxfileFromSchema(schema) {
       if (/\b(PK|PRIMARY KEY)\b/i.test(normalized)) tags.push("PK");
       if (/\b(FK|FOREIGN KEY)\b/i.test(normalized)) tags.push("FK");
       const firstLine = `${c.name}: ${c.type}${tags.length ? ` [${tags.join("/")}]` : ""}`;
-      lines.push(...wrapLine(firstLine, 56));
+      lines.push(...wrapLine(firstLine, 48));
       if (normalized) {
-        lines.push(...wrapLine(`  ${normalized}`, 58));
+        lines.push(...wrapLine(`  ${normalized}`, 50));
       }
     });
 
@@ -166,12 +261,16 @@ function drawioMxfileFromSchema(schema) {
       }
     }
 
-    const text = [displayName, "--------------------", ...lines].join("\n");
+    const htmlValue = [
+      `<b>${escapeXml(displayName)}</b>`,
+      `<span style="color:#64748b;">--------------------</span>`,
+      ...lines.map((line) => escapeXml(line)),
+    ].join("<br/>");
     const h = headerH + Math.max(5, lines.length + 2) * rowH + 18;
     cells.push(
-      `<mxCell id="${rectId}" value="${encodeDrawioValue(
-        text,
-      )}" style="rounded=1;whiteSpace=wrap;html=0;align=left;verticalAlign=top;spacing=10;fillColor=#f8fafc;strokeColor=#334155;fontSize=11;fontFamily=Menlo;overflow=hidden;" vertex="1" parent="1"><mxGeometry x="${x}" y="${y}" width="${boxW}" height="${h}" as="geometry"/></mxCell>`,
+      `<mxCell id="${rectId}" value="${encodeDrawioHtmlValue(
+        htmlValue,
+      )}" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacing=10;spacingTop=16;spacingLeft=10;spacingRight=10;spacingBottom=10;fillColor=${palette[i % palette.length]};strokeColor=#334155;fontSize=11;fontFamily=Menlo;overflow=hidden;" vertex="1" parent="1"><mxGeometry x="${x}" y="${y}" width="${boxW}" height="${h}" as="geometry"/></mxCell>`,
     );
     tableToMeta.set(table.name, { rectId, x, y, w: boxW, h });
   });
@@ -184,17 +283,17 @@ function drawioMxfileFromSchema(schema) {
     if (!from || !to) return;
 
     const edgeId = String(++cellId);
-    const relLabel = `${rel.type}\n${rel.from} → ${rel.to}`;
+    const relLabel = `${rel.type}`;
     cells.push(
       `<mxCell id="${edgeId}" value="${encodeDrawioValue(
         relLabel,
-      )}" style="endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#475569;fontSize=10;labelBackgroundColor=#ffffff;rounded=1;html=0;whiteSpace=wrap;" edge="1" parent="1" source="${from.rectId}" target="${to.rectId}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
+      )}" style="edgeStyle=orthogonalEdgeStyle;orthogonalLoop=1;jettySize=auto;rounded=0;endArrow=block;endFill=1;strokeWidth=1.5;strokeColor=#475569;fontSize=9;labelBackgroundColor=#ffffff;html=0;whiteSpace=wrap;" edge="1" parent="1" source="${from.rectId}" target="${to.rectId}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
     );
   });
 
   const rows = Math.max(1, Math.ceil(Math.max(1, schema.tables.length) / cols));
   const pageWidth = Math.max(1600, 80 + cols * boxW + Math.max(0, cols - 1) * gapX);
-  const pageHeight = Math.max(1200, 120 + rows * 360);
+  const pageHeight = Math.max(1200, 160 + rows * 460);
 
   const graph = `<mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="${pageWidth}" pageHeight="${pageHeight}" math="0" shadow="0">
   <root>
@@ -221,6 +320,10 @@ function escapeXml(value) {
 
 function encodeDrawioValue(value) {
   return escapeXml(String(value).replace(/\\n/g, "\n")).replace(/\r?\n/g, "&#xa;");
+}
+
+function encodeDrawioHtmlValue(value) {
+  return escapeXml(String(value || ""));
 }
 
 function wrapLine(input, maxLen) {
@@ -655,18 +758,21 @@ app.get("/api/health", (_req, res) => {
 app.post("/api/engineer/session", async (req, res) => {
   try {
     const { projectId, answers, architecture } = req.body || {};
-    if (!projectId) return res.status(400).json({ error: "projectId is required" });
+    const normalizedProjectId = normalizeProjectId(projectId);
+    if (!normalizedProjectId) return res.status(400).json({ error: "projectId is required" });
 
-    const requirementsMarkdown = makeRequirementsMarkdown(answers || {});
+    const projectDoc = await findProjectDocByProjectId(normalizedProjectId);
+    const requirementsFromDb = extractRequirementsFromProjectDoc(projectDoc);
+    const requirementsMarkdown = requirementsFromDb || makeRequirementsMarkdown(answers || {});
     const architectureSummary = Array.isArray(architecture)
       ? architecture.map((c) => `${c.name} (${c.kind})`).join(", ")
       : "";
 
     await sessions.updateOne(
-      { projectId },
+      { projectId: normalizedProjectId },
       {
         $set: {
-          projectId,
+          projectId: normalizedProjectId,
           requirementsMarkdown,
           architectureSummary,
           updatedAt: nowIso(),
@@ -686,9 +792,9 @@ app.post("/api/engineer/session", async (req, res) => {
       { upsert: true },
     );
 
-    const session = await sessions.findOne({ projectId });
-    const hydrated = await backfillSchemaArtifacts(projectId, session);
-    return res.json(shapeResponse(projectId, hydrated));
+    const session = await sessions.findOne({ projectId: normalizedProjectId });
+    const hydrated = await backfillSchemaArtifacts(normalizedProjectId, session);
+    return res.json(shapeResponse(normalizedProjectId, hydrated));
   } catch (error) {
     console.error(error);
     return res.status(500).json({ error: "Failed to initialize session" });
@@ -697,7 +803,7 @@ app.post("/api/engineer/session", async (req, res) => {
 
 app.get("/api/engineer/schema/:projectId", async (req, res) => {
   try {
-    const { projectId } = req.params;
+    const projectId = normalizeProjectId(req.params.projectId);
     const session = await sessions.findOne({ projectId });
     if (!session) return res.status(404).json({ error: "Session not found" });
     const hydrated = await backfillSchemaArtifacts(projectId, session);
@@ -710,7 +816,7 @@ app.get("/api/engineer/schema/:projectId", async (req, res) => {
 
 app.post("/api/engineer/schema/generate", async (req, res) => {
   try {
-    const { projectId } = req.body || {};
+    const projectId = normalizeProjectId(req.body?.projectId);
     if (!projectId) return res.status(400).json({ error: "projectId is required" });
 
     const session = await sessions.findOne({ projectId });
@@ -750,7 +856,7 @@ app.post("/api/engineer/schema/generate", async (req, res) => {
 
 app.put("/api/engineer/schema/:projectId", async (req, res) => {
   try {
-    const { projectId } = req.params;
+    const projectId = normalizeProjectId(req.params.projectId);
     const nextSchema = sanitizeSchema(req.body?.dbSchema);
     const mermaid = mermaidFromSchema(nextSchema);
     const xml = drawioMxfileFromSchema(nextSchema);
@@ -781,7 +887,8 @@ app.put("/api/engineer/schema/:projectId", async (req, res) => {
 
 app.post("/api/engineer/agent/apply", async (req, res) => {
   try {
-    const { projectId, instruction } = req.body || {};
+    const projectId = normalizeProjectId(req.body?.projectId);
+    const instruction = String(req.body?.instruction || "").trim();
     if (!projectId || !instruction) {
       return res.status(400).json({ error: "projectId and instruction are required" });
     }
@@ -822,7 +929,8 @@ app.post("/api/engineer/agent/apply", async (req, res) => {
 
 app.post("/api/engineer/mentor", async (req, res) => {
   try {
-    const { projectId, message } = req.body || {};
+    const projectId = normalizeProjectId(req.body?.projectId);
+    const message = String(req.body?.message || "").trim();
     if (!projectId || !message) {
       return res.status(400).json({ error: "projectId and message are required" });
     }
@@ -880,13 +988,66 @@ app.post("/api/engineer/mentor", async (req, res) => {
   }
 });
 
+app.get("/api/engineer/projects", async (_req, res) => {
+  try {
+    const projectDocs = await projects
+      .find(
+        {},
+        {
+          projection: {
+            _id: 1,
+            projectId: 1,
+            projectID: 1,
+            id: 1,
+            project_id: 1,
+            title: 1,
+            name: 1,
+            projectName: 1,
+            updatedAt: 1,
+            requirementDoc: 1,
+            requirementDocs: 1,
+            requirementsDoc: 1,
+          },
+        },
+      )
+      .limit(500)
+      .toArray();
+
+    const projectsList = projectDocs
+      .map((d) => {
+        const pid = normalizeProjectId(
+          d.projectId || d.projectID || d.id || d.project_id || d._id,
+        );
+        if (!pid) return null;
+        return {
+          projectId: pid,
+          title: String(d.title || d.name || d.projectName || pid).trim() || pid,
+          source: "projects",
+          updatedAt: d.updatedAt || "",
+          hasRequirements: Boolean(extractRequirementsFromProjectDoc(d)),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) =>
+      String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")),
+    );
+    return res.json({ projects: projectsList, db: "straightup", collection: "projects" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to list projects" });
+  }
+});
+
 async function start() {
   await mongo.connect();
-  db = mongo.db(process.env.MONGODB_DB || "design_de_coder");
+  db = mongo.db("straightup");
   sessions = db.collection("engineer_sessions");
+  projects = db.collection("projects");
   await sessions.createIndex({ projectId: 1 }, { unique: true });
   app.listen(port, () => {
-    console.log(`Engineer API listening on http://localhost:${port}`);
+    console.log(
+      `Engineer API listening on http://localhost:${port} (db=straightup, collections=projects,engineer_sessions)`,
+    );
   });
 }
 

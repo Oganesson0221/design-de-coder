@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bot,
@@ -46,7 +47,10 @@ const EMPTY_SCHEMA: DbSchemaData = { tables: [], relationships: [] };
 
 function toProjectId(idea: string, audience: string, flow: string) {
   const raw = `${idea}|${audience}|${flow}`.trim() || "workspace";
-  return `project_${raw.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 60)}`;
+  return `project_${raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .slice(0, 60)}`;
 }
 
 function cloneSchema(schema: DbSchemaData): DbSchemaData {
@@ -110,13 +114,16 @@ function DrawioFrame({ xml }: { xml: string }) {
   }, []);
 
   useEffect(() => {
-    if (!iframeRef.current?.contentWindow || !isFrameLoaded || !isEditorReady || !xmlRef.current.trim()) return;
+    if (
+      !iframeRef.current?.contentWindow ||
+      !isFrameLoaded ||
+      !isEditorReady ||
+      !xmlRef.current.trim()
+    )
+      return;
     const normalizeForDrawio = (source: string) => {
       const normalizeNewlines = (s: string) =>
-        s
-          .replace(/\\\\n/g, "\n")
-          .replace(/\\n/g, "\n")
-          .replace(/&#10;/g, "\n");
+        s.replace(/\\\\n/g, "\n").replace(/\\n/g, "\n").replace(/&#10;/g, "\n");
       const upgradeLegacyModel = (model: string) => {
         try {
           const parser = new DOMParser();
@@ -146,42 +153,103 @@ function DrawioFrame({ xml }: { xml: string }) {
               .split("\\\\n")
               .join("\n")
               .split("\\n")
-              .join("\n")
-              .replace(/\s+/g, " ")
-              .trim();
-            if (normalized.includes("\n")) return normalized;
-            const parts = normalized.split(/\s+(?=[a-zA-Z_][a-zA-Z0-9_]*\s*:\s)/g);
-            if (parts.length <= 1) return normalized;
+              .join("\n");
+
+            const wrapRows = (rows: string[], maxLen = 72) => {
+              const out: string[] = [];
+              for (const row of rows) {
+                const line = row.replace(/\s+/g, " ").trim();
+                if (!line) continue;
+                if (line.length <= maxLen) {
+                  out.push(line);
+                  continue;
+                }
+                const words = line.split(" ");
+                let current = "";
+                for (const word of words) {
+                  const next = current ? `${current} ${word}` : word;
+                  if (next.length > maxLen) {
+                    if (current) out.push(current);
+                    current = word;
+                  } else {
+                    current = next;
+                  }
+                }
+                if (current) out.push(current);
+              }
+              return out;
+            };
+
+            if (normalized.includes("\n")) {
+              return wrapRows(normalized.split(/\r?\n/), 72).join("\n");
+            }
+            const compact = normalized.replace(/\s+/g, " ").trim();
+            const parts = compact.split(
+              /\s+(?=[a-zA-Z_][a-zA-Z0-9_]*\s*:\s)/g,
+            );
+            if (parts.length <= 1) return compact;
             const header = parts[0].trim();
-            const rows = parts.slice(1).map((x) => x.trim()).filter(Boolean);
-            return [header, ...rows].join("\n");
+            const rows = parts
+              .slice(1)
+              .map((x) => x.trim())
+              .filter(Boolean);
+            const wrapped = wrapRows(rows, 72);
+            return [header, ...wrapped].join("\n");
           };
 
-          const vertices = Array.from(doc.querySelectorAll("mxCell[vertex='1']"));
-          const withLayout: Array<{ cell: Element; width: number; height: number }> = [];
+          const vertices = Array.from(
+            doc.querySelectorAll("mxCell[vertex='1']"),
+          );
+          const withLayout: Array<{
+            cell: Element;
+            width: number;
+            height: number;
+          }> = [];
 
-          vertices.forEach((cell) => {
+          const palette = ["#eef6ff", "#f5f3ff", "#ecfeff", "#f0fdf4", "#fff7ed"];
+
+          vertices.forEach((cell, idx) => {
             const rawValue = cell.getAttribute("value") || "";
             const normalizedValue = normalizeCellText(rawValue);
-            cell.setAttribute("value", normalizedValue);
+            const rowLines = normalizedValue
+              .split(/\r?\n/)
+              .map((x) => x.trim())
+              .filter(Boolean);
+            const header = rowLines[0] || "table";
+            const rest = rowLines.slice(1);
+            const htmlValue = [
+              `<b>${header}</b>`,
+              `<span style="color:#64748b;">--------------------</span>`,
+              ...rest,
+            ].join("<br/>");
+            cell.setAttribute("value", htmlValue);
 
             const style = asStyleMap(cell.getAttribute("style") || "");
             style.set("whiteSpace", "wrap");
-            style.set("html", "0");
+            style.set("html", "1");
             style.set("align", "left");
             style.set("verticalAlign", "top");
             style.set("spacing", "10");
+            style.set("spacingTop", "16");
+            style.set("spacingLeft", "10");
+            style.set("spacingRight", "10");
+            style.set("spacingBottom", "10");
             style.set("overflow", "hidden");
             style.set("fontSize", style.get("fontSize") || "11");
             style.set("fontFamily", style.get("fontFamily") || "Menlo");
+            style.set("fillColor", palette[idx % palette.length]);
+            style.set("strokeColor", "#334155");
             cell.setAttribute("style", styleString(style));
 
             const g = cell.querySelector("mxGeometry");
             if (!g) return;
             const oldW = Number(g.getAttribute("width") || 0);
             const oldH = Number(g.getAttribute("height") || 0);
-            const lineCount = Math.max(4, normalizedValue.split(/\r?\n/).length);
-            const targetW = Math.max(oldW, 560);
+            const lineCount = Math.max(
+              4,
+              normalizedValue.split(/\r?\n/).length,
+            );
+            const targetW = Math.max(oldW, 640);
             const targetH = Math.max(oldH, 44 + lineCount * 20);
             g.setAttribute("width", String(targetW));
             g.setAttribute("height", String(targetH));
@@ -189,15 +257,21 @@ function DrawioFrame({ xml }: { xml: string }) {
           });
 
           if (withLayout.length > 0) {
-            const cols = Math.max(2, Math.min(3, Math.ceil(Math.sqrt(withLayout.length))));
+            const cols = Math.max(
+              2,
+              Math.min(2, Math.ceil(Math.sqrt(withLayout.length))),
+            );
             const startX = 40;
             const startY = 40;
-            const gapX = 320;
-            const gapY = 180;
+            const gapX = 420;
+            const gapY = 260;
             const rowHeights: number[] = [];
             for (let i = 0; i < withLayout.length; i++) {
               const row = Math.floor(i / cols);
-              rowHeights[row] = Math.max(rowHeights[row] || 0, withLayout[i].height);
+              rowHeights[row] = Math.max(
+                rowHeights[row] || 0,
+                withLayout[i].height,
+              );
             }
             const rowY: number[] = [];
             let yCursor = startY;
@@ -214,23 +288,42 @@ function DrawioFrame({ xml }: { xml: string }) {
               g.setAttribute("x", String(startX + col * (item.width + gapX)));
               g.setAttribute("y", String(rowY[row]));
             }
+
+            const maxRowWidth = Math.max(...withLayout.map((x) => x.width), 0);
+            const totalRows = Math.max(1, Math.ceil(withLayout.length / cols));
+            const totalHeight =
+              rowHeights.reduce((sum, h) => sum + h, 0) +
+              Math.max(0, totalRows - 1) * gapY +
+              startY +
+              80;
+            const totalWidth =
+              startX + cols * maxRowWidth + Math.max(0, cols - 1) * gapX + 80;
+            graph.setAttribute("pageWidth", String(Math.max(Number(graph.getAttribute("pageWidth") || 0), totalWidth)));
+            graph.setAttribute("pageHeight", String(Math.max(Number(graph.getAttribute("pageHeight") || 0), totalHeight)));
           }
 
           doc.querySelectorAll("mxCell[edge='1']").forEach((cell) => {
             const rawValue = cell.getAttribute("value") || "";
+            const compactEdge = rawValue
+              .split("\\\\n")
+              .join("\n")
+              .split("\\n")
+              .join("\n")
+              .split(/\r?\n/)
+              .map((x) => x.trim())
+              .filter(Boolean)[0] || rawValue;
             cell.setAttribute(
               "value",
-              rawValue
-                .split("\\\\n")
-                .join("\n")
-                .split("\\n")
-                .join("\n"),
+              compactEdge,
             );
             const style = asStyleMap(cell.getAttribute("style") || "");
             style.set("html", "0");
             style.set("whiteSpace", "wrap");
             style.set("labelBackgroundColor", "#ffffff");
-            style.set("fontSize", style.get("fontSize") || "10");
+            style.set("fontSize", style.get("fontSize") || "9");
+            style.set("edgeStyle", "orthogonalEdgeStyle");
+            style.set("orthogonalLoop", "1");
+            style.set("jettySize", "auto");
             cell.setAttribute("style", styleString(style));
           });
 
@@ -241,19 +334,26 @@ function DrawioFrame({ xml }: { xml: string }) {
       };
       const raw = source.trim();
       const modelMatch = raw.match(/<mxGraphModel[\s\S]*<\/mxGraphModel>/i);
-      if (modelMatch?.[0]) return upgradeLegacyModel(normalizeNewlines(modelMatch[0].trim()));
+      if (modelMatch?.[0])
+        return upgradeLegacyModel(normalizeNewlines(modelMatch[0].trim()));
       const unescaped = raw
         .replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">")
-        .replace(/&quot;/g, "\"")
+        .replace(/&quot;/g, '"')
         .replace(/&amp;/g, "&");
-      const modelUnescaped = unescaped.match(/<mxGraphModel[\s\S]*<\/mxGraphModel>/i);
-      if (modelUnescaped?.[0]) return upgradeLegacyModel(normalizeNewlines(modelUnescaped[0].trim()));
+      const modelUnescaped = unescaped.match(
+        /<mxGraphModel[\s\S]*<\/mxGraphModel>/i,
+      );
+      if (modelUnescaped?.[0])
+        return upgradeLegacyModel(normalizeNewlines(modelUnescaped[0].trim()));
       if (raw.includes("<mxfile")) {
         const cdata = raw.match(/<!\[CDATA\[([\s\S]*?)\]\]>/i);
         if (cdata?.[1]?.includes("<mxGraphModel")) {
-          const nested = cdata[1].match(/<mxGraphModel[\s\S]*<\/mxGraphModel>/i);
-          if (nested?.[0]) return upgradeLegacyModel(normalizeNewlines(nested[0].trim()));
+          const nested = cdata[1].match(
+            /<mxGraphModel[\s\S]*<\/mxGraphModel>/i,
+          );
+          if (nested?.[0])
+            return upgradeLegacyModel(normalizeNewlines(nested[0].trim()));
         }
       }
       return "";
@@ -286,7 +386,7 @@ function DrawioFrame({ xml }: { xml: string }) {
         ref={iframeRef}
         title="Draw.io schema diagram"
         src="https://embed.diagrams.net/?embed=1&proto=json&spin=1&ui=min&libraries=1&saveAndExit=1&modified=unsavedChanges"
-        className="h-full w-full min-h-0"
+        className="h-full w-full min-h-[900px]"
         onLoad={() => {
           setIsFrameLoaded(true);
         }}
@@ -314,25 +414,36 @@ function TableCard({
   const [expanded, setExpanded] = useState(true);
 
   const updateCol = (i: number, field: keyof SchemaColumn, value: string) => {
-    const cols = table.columns.map((c, idx) => (idx === i ? { ...c, [field]: value } : c));
+    const cols = table.columns.map((c, idx) =>
+      idx === i ? { ...c, [field]: value } : c,
+    );
     onChange({ ...table, columns: cols });
   };
 
   const addCol = () => {
     onChange({
       ...table,
-      columns: [...table.columns, { name: "new_column", type: "text", constraints: "", notes: "" }],
+      columns: [
+        ...table.columns,
+        { name: "new_column", type: "text", constraints: "", notes: "" },
+      ],
     });
   };
 
   const deleteCol = (i: number) => {
-    onChange({ ...table, columns: table.columns.filter((_, idx) => idx !== i) });
+    onChange({
+      ...table,
+      columns: table.columns.filter((_, idx) => idx !== i),
+    });
   };
 
   return (
     <div className="bg-card rounded-xl border border-foreground/15 shadow-sm overflow-hidden">
       <div className="flex items-center justify-between border-b border-foreground/15 bg-background px-4 py-2.5">
-        <button onClick={() => setExpanded((p) => !p)} className="flex items-center gap-2 flex-1 text-left">
+        <button
+          onClick={() => setExpanded((p) => !p)}
+          className="flex items-center gap-2 flex-1 text-left"
+        >
           <div className="h-2 w-2 shrink-0 rounded-full bg-primary" />
           {isEditing ? (
             <Input
@@ -342,20 +453,37 @@ function TableCard({
               onClick={(e) => e.stopPropagation()}
             />
           ) : (
-            <span className="font-mono text-sm font-semibold text-foreground">{table.name}</span>
+            <span className="font-mono text-sm font-semibold text-foreground">
+              {table.name}
+            </span>
           )}
-          <Badge variant="outline" className="text-[10px] text-muted-foreground border-foreground/20">
+          <Badge
+            variant="outline"
+            className="text-[10px] text-muted-foreground border-foreground/20"
+          >
             {table.columns.length} cols
           </Badge>
         </button>
         <div className="flex items-center gap-1.5">
           {isEditing && (
-            <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={onDelete}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              onClick={onDelete}
+            >
               <Trash2 className="w-3.5 h-3.5" />
             </Button>
           )}
-          <button onClick={() => setExpanded((p) => !p)} className="text-muted-foreground hover:text-foreground">
-            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          <button
+            onClick={() => setExpanded((p) => !p)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {expanded ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
           </button>
         </div>
       </div>
@@ -364,14 +492,18 @@ function TableCard({
         <div className="px-4 py-2 border-b border-foreground/15 bg-background">
           <Input
             value={table.description}
-            onChange={(e) => onChange({ ...table, description: e.target.value })}
+            onChange={(e) =>
+              onChange({ ...table, description: e.target.value })
+            }
             placeholder="Table description..."
             className="h-7 text-xs border-foreground/20"
           />
         </div>
       ) : table.description ? (
         <div className="px-4 py-2 border-b border-foreground/15 bg-background">
-          <p className="text-xs text-muted-foreground leading-relaxed">{table.description}</p>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {table.description}
+          </p>
         </div>
       ) : null}
 
@@ -414,18 +546,34 @@ function TableCard({
                       >
                         <td className="px-3 py-2">
                           {isEditing ? (
-                            <EditCell value={col.name} onChange={(v) => updateCol(i, "name", v)} mono placeholder="column_name" />
+                            <EditCell
+                              value={col.name}
+                              onChange={(v) => updateCol(i, "name", v)}
+                              mono
+                              placeholder="column_name"
+                            />
                           ) : (
                             <div className="flex items-center gap-1.5">
-                              {isPK && <KeyRound className="w-3 h-3 text-primary shrink-0" />}
-                              {isFK && <Link2 className="w-3 h-3 text-primary shrink-0" />}
-                              <span className="font-mono font-medium text-foreground">{col.name}</span>
+                              {isPK && (
+                                <KeyRound className="w-3 h-3 text-primary shrink-0" />
+                              )}
+                              {isFK && (
+                                <Link2 className="w-3 h-3 text-primary shrink-0" />
+                              )}
+                              <span className="font-mono font-medium text-foreground">
+                                {col.name}
+                              </span>
                             </div>
                           )}
                         </td>
                         <td className="px-3 py-2">
                           {isEditing ? (
-                            <EditCell value={col.type} onChange={(v) => updateCol(i, "type", v)} mono placeholder="text" />
+                            <EditCell
+                              value={col.type}
+                              onChange={(v) => updateCol(i, "type", v)}
+                              mono
+                              placeholder="text"
+                            />
                           ) : (
                             <span className="rounded bg-muted/40 px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
                               {col.type}
@@ -440,14 +588,26 @@ function TableCard({
                               placeholder="PK, NOT NULL..."
                             />
                           ) : (
-                            col.constraints || <span className="text-muted-foreground/50">-</span>
+                            col.constraints || (
+                              <span className="text-muted-foreground/50">
+                                -
+                              </span>
+                            )
                           )}
                         </td>
                         <td className="px-3 py-2 text-muted-foreground">
                           {isEditing ? (
-                            <EditCell value={col.notes} onChange={(v) => updateCol(i, "notes", v)} placeholder="Note..." />
+                            <EditCell
+                              value={col.notes}
+                              onChange={(v) => updateCol(i, "notes", v)}
+                              placeholder="Note..."
+                            />
                           ) : (
-                            col.notes || <span className="text-muted-foreground/50">-</span>
+                            col.notes || (
+                              <span className="text-muted-foreground/50">
+                                -
+                              </span>
+                            )
                           )}
                         </td>
                         {isEditing && (
@@ -468,7 +628,12 @@ function TableCard({
             </div>
             {isEditing && (
               <div className="px-3 py-2 border-t border-dashed border-foreground/20 bg-muted/20">
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5" onClick={addCol}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={addCol}
+                >
                   <Plus className="w-3 h-3" /> Add column
                 </Button>
               </div>
@@ -481,6 +646,7 @@ function TableCard({
 }
 
 export default function EngineerWorkbench() {
+  const [searchParams] = useSearchParams();
   const answers = useProject((s) => s.answers);
   const components = useProject((s) => s.components);
 
@@ -502,12 +668,15 @@ export default function EngineerWorkbench() {
   const [agentInput, setAgentInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [mentorPoints, setMentorPoints] = useState(0);
-  const [terminology, setTerminology] = useState<{ term: string; explanation: string }[]>([]);
+  const [terminology, setTerminology] = useState<
+    { term: string; explanation: string }[]
+  >([]);
   const [recommendedAnswers, setRecommendedAnswers] = useState<string[]>([
     "For 8,000 DAU, I can estimate peak concurrency by choosing a peak-window activity ratio and validating with logs.",
     "I will define p95 latency targets per critical user flow and tune from production traces.",
     "I will only add GPUs when we have a concrete ML inference bottleneck with measured demand.",
   ]);
+  const [activeProjectId, setActiveProjectId] = useState("");
 
   const display = isEditing ? draft : schema;
   const rationalePoints = useMemo(() => {
@@ -520,10 +689,18 @@ export default function EngineerWorkbench() {
     return base;
   }, [rationale]);
 
-  const projectId = useMemo(
+  const defaultProjectId = useMemo(
     () => toProjectId(answers.idea, answers.audience, answers.flow),
     [answers.idea, answers.audience, answers.flow],
   );
+  const projectIdFromUrl = (searchParams.get("projectId") || "").trim();
+
+  useEffect(() => {
+    if (!activeProjectId) {
+      const initial = projectIdFromUrl || defaultProjectId;
+      setActiveProjectId(initial);
+    }
+  }, [defaultProjectId, activeProjectId, projectIdFromUrl]);
 
   const hydrateFromSession = (data: {
     dbSchema: DbSchemaData;
@@ -558,10 +735,11 @@ export default function EngineerWorkbench() {
   useEffect(() => {
     let mounted = true;
     async function boot() {
+      if (!activeProjectId) return;
       setLoading(true);
       try {
         const session = await initEngineerSession({
-          projectId,
+          projectId: activeProjectId,
           answers,
           architecture: components,
         });
@@ -577,7 +755,7 @@ export default function EngineerWorkbench() {
     return () => {
       mounted = false;
     };
-  }, [projectId, answers, components]);
+  }, [activeProjectId, answers, components]);
 
   const startEdit = () => {
     setDraft(cloneSchema(schema));
@@ -670,12 +848,20 @@ export default function EngineerWorkbench() {
     }
   };
 
+  const projectId = activeProjectId || defaultProjectId;
+
   const updateTable = (i: number, t: SchemaTable) => {
-    setDraft((prev) => ({ ...prev, tables: prev.tables.map((tbl, idx) => (idx === i ? t : tbl)) }));
+    setDraft((prev) => ({
+      ...prev,
+      tables: prev.tables.map((tbl, idx) => (idx === i ? t : tbl)),
+    }));
   };
 
   const deleteTable = (i: number) => {
-    setDraft((prev) => ({ ...prev, tables: prev.tables.filter((_, idx) => idx !== i) }));
+    setDraft((prev) => ({
+      ...prev,
+      tables: prev.tables.filter((_, idx) => idx !== i),
+    }));
   };
 
   const addTable = () => {
@@ -686,7 +872,14 @@ export default function EngineerWorkbench() {
         {
           name: "new_table",
           description: "",
-          columns: [{ name: "id", type: "uuid", constraints: "PK", notes: "Primary key" }],
+          columns: [
+            {
+              name: "id",
+              type: "uuid",
+              constraints: "PK",
+              notes: "Primary key",
+            },
+          ],
         },
       ],
     }));
@@ -703,22 +896,38 @@ export default function EngineerWorkbench() {
   return (
     <div className="relative h-full bg-paper overflow-hidden rounded-xl border border-foreground/15">
       <div className="h-full flex min-h-0 overflow-hidden">
-        <main className={`flex-1 min-w-0 flex flex-col overflow-hidden transition-[padding-right] duration-200 ${sideOpen ? "pr-[320px]" : "pr-0"}`}>
+        <main
+          className={`flex-1 min-w-0 flex flex-col overflow-hidden transition-[padding-right] duration-200 ${
+            sideOpen ? "pr-[320px]" : "pr-0"
+          }`}
+        >
           <div className="shrink-0 border-b border-foreground/15 bg-background">
             <div className="px-4 h-12 flex items-center gap-2">
-              <Button variant={mainTab === "schema" ? "default" : "outline"} size="sm" onClick={() => setMainTab("schema")}>
+              <Button
+                variant={mainTab === "schema" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMainTab("schema")}
+              >
                 <Database className="w-4 h-4" />
                 Database Schema
               </Button>
-              <Button variant={mainTab === "diagram" ? "default" : "outline"} size="sm" onClick={() => setMainTab("diagram")}>
+              <Button
+                variant={mainTab === "diagram" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setMainTab("diagram")}
+              >
                 <Sparkles className="w-4 h-4" />
                 Draw.io Diagram
               </Button>
               <div className="ml-auto flex items-center gap-2">
-                <Badge variant="outline" className="border-foreground/20">
+                {/* <Badge variant="outline" className="border-foreground/20">
                   Engineer points: {mentorPoints}
-                </Badge>
-                <Button variant={sideOpen ? "default" : "outline"} size="icon" onClick={() => setSideOpen((v) => !v)}>
+                </Badge> */}
+                <Button
+                  variant={sideOpen ? "default" : "outline"}
+                  size="icon"
+                  onClick={() => setSideOpen((v) => !v)}
+                >
                   <PanelRight className="w-4 h-4" />
                 </Button>
               </div>
@@ -727,30 +936,59 @@ export default function EngineerWorkbench() {
 
           {mainTab === "schema" && (
             <div className="flex-1 overflow-y-auto overscroll-contain">
-              <div className="p-5 max-w-5xl mx-auto space-y-3">
+              <div className="p-5 w-full max-w-none space-y-3">
                 <div className="flex items-center gap-2 border border-foreground/15 rounded-xl bg-card px-3 py-2">
                   {!isEditing ? (
                     <>
                       <Button size="sm" className="gap-1.5" onClick={startEdit}>
                         <Edit2 className="w-3.5 h-3.5" /> Edit tables
                       </Button>
-                      <Button size="sm" variant="outline" onClick={generateFromRequirements} disabled={busy}>
-                        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={generateFromRequirements}
+                        disabled={busy}
+                      >
+                        {busy ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Wand2 className="w-4 h-4" />
+                        )}
                         Generate from requirements
                       </Button>
-                      <Button size="sm" variant="outline" onClick={loadFromDb} disabled={busy}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={loadFromDb}
+                        disabled={busy}
+                      >
                         Reload from DB
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Button size="sm" className="gap-1.5" onClick={saveEdit} disabled={busy}>
+                      <Button
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={saveEdit}
+                        disabled={busy}
+                      >
                         <Save className="w-3.5 h-3.5" /> Save
                       </Button>
-                      <Button variant="outline" size="sm" className="gap-1.5" onClick={discardEdit}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={discardEdit}
+                      >
                         <X className="w-3.5 h-3.5" /> Discard
                       </Button>
-                      <Button variant="outline" size="sm" className="gap-1.5 ml-2" onClick={addTable}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 ml-2"
+                        onClick={addTable}
+                      >
                         <Plus className="w-3.5 h-3.5" /> Add table
                       </Button>
                     </>
@@ -770,7 +1008,10 @@ export default function EngineerWorkbench() {
                     <div className="label-caps mb-1">Schema rationale</div>
                     <ul className="space-y-1">
                       {rationalePoints.map((pt, i) => (
-                        <li key={i} className="text-sm text-foreground/85 leading-relaxed">
+                        <li
+                          key={i}
+                          className="text-sm text-foreground/85 leading-relaxed"
+                        >
                           • {pt}
                         </li>
                       ))}
@@ -793,7 +1034,11 @@ export default function EngineerWorkbench() {
                             ...prev,
                             relationships: [
                               ...prev.relationships,
-                              { from: "table.col", to: "table.id", type: "many-to-one" },
+                              {
+                                from: "table.col",
+                                to: "table.id",
+                                type: "many-to-one",
+                              },
                             ],
                           }))
                         }
@@ -806,15 +1051,24 @@ export default function EngineerWorkbench() {
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="border-b border-foreground/15">
-                          <th className="text-left px-4 py-2 font-medium text-[10px] uppercase tracking-wide text-muted-foreground">From</th>
-                          <th className="text-left px-4 py-2 font-medium text-[10px] uppercase tracking-wide text-muted-foreground">To</th>
-                          <th className="text-left px-4 py-2 font-medium text-[10px] uppercase tracking-wide text-muted-foreground">Cardinality</th>
+                          <th className="text-left px-4 py-2 font-medium text-[10px] uppercase tracking-wide text-muted-foreground">
+                            From
+                          </th>
+                          <th className="text-left px-4 py-2 font-medium text-[10px] uppercase tracking-wide text-muted-foreground">
+                            To
+                          </th>
+                          <th className="text-left px-4 py-2 font-medium text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Cardinality
+                          </th>
                           {isEditing && <th className="w-8" />}
                         </tr>
                       </thead>
                       <tbody>
                         {display.relationships.map((rel, i) => (
-                          <tr key={i} className="border-b border-foreground/10 last:border-0 hover:bg-muted/20 transition-colors">
+                          <tr
+                            key={i}
+                            className="border-b border-foreground/10 last:border-0 hover:bg-muted/20 transition-colors"
+                          >
                             <td className="px-4 py-2">
                               {isEditing ? (
                                 <Input
@@ -822,15 +1076,20 @@ export default function EngineerWorkbench() {
                                   onChange={(e) =>
                                     setDraft((prev) => ({
                                       ...prev,
-                                      relationships: prev.relationships.map((r, ri) =>
-                                        ri === i ? { ...r, from: e.target.value } : r,
+                                      relationships: prev.relationships.map(
+                                        (r, ri) =>
+                                          ri === i
+                                            ? { ...r, from: e.target.value }
+                                            : r,
                                       ),
                                     }))
                                   }
                                   className="h-7 text-xs font-mono border-foreground/20 bg-background"
                                 />
                               ) : (
-                                <span className="font-mono text-primary">{rel.from}</span>
+                                <span className="font-mono text-primary">
+                                  {rel.from}
+                                </span>
                               )}
                             </td>
                             <td className="px-4 py-2">
@@ -840,15 +1099,20 @@ export default function EngineerWorkbench() {
                                   onChange={(e) =>
                                     setDraft((prev) => ({
                                       ...prev,
-                                      relationships: prev.relationships.map((r, ri) =>
-                                        ri === i ? { ...r, to: e.target.value } : r,
+                                      relationships: prev.relationships.map(
+                                        (r, ri) =>
+                                          ri === i
+                                            ? { ...r, to: e.target.value }
+                                            : r,
                                       ),
                                     }))
                                   }
                                   className="h-7 text-xs font-mono border-foreground/20 bg-background"
                                 />
                               ) : (
-                                <span className="font-mono text-primary">{rel.to}</span>
+                                <span className="font-mono text-primary">
+                                  {rel.to}
+                                </span>
                               )}
                             </td>
                             <td className="px-4 py-2">
@@ -858,21 +1122,34 @@ export default function EngineerWorkbench() {
                                   onChange={(e) =>
                                     setDraft((prev) => ({
                                       ...prev,
-                                      relationships: prev.relationships.map((r, ri) =>
-                                        ri === i
-                                          ? { ...r, type: e.target.value as SchemaRelationship["type"] }
-                                          : r,
+                                      relationships: prev.relationships.map(
+                                        (r, ri) =>
+                                          ri === i
+                                            ? {
+                                                ...r,
+                                                type: e.target
+                                                  .value as SchemaRelationship["type"],
+                                              }
+                                            : r,
                                       ),
                                     }))
                                   }
                                   className="h-7 w-full rounded border border-foreground/20 bg-background px-2 text-xs text-muted-foreground"
                                 >
-                                  <option value="many-to-one">many-to-one</option>
-                                  <option value="one-to-many">one-to-many</option>
-                                  <option value="many-to-many">many-to-many</option>
+                                  <option value="many-to-one">
+                                    many-to-one
+                                  </option>
+                                  <option value="one-to-many">
+                                    one-to-many
+                                  </option>
+                                  <option value="many-to-many">
+                                    many-to-many
+                                  </option>
                                 </select>
                               ) : (
-                                <span className="text-muted-foreground">{rel.type}</span>
+                                <span className="text-muted-foreground">
+                                  {rel.type}
+                                </span>
                               )}
                             </td>
                             {isEditing && (
@@ -882,7 +1159,9 @@ export default function EngineerWorkbench() {
                                   onClick={() =>
                                     setDraft((prev) => ({
                                       ...prev,
-                                      relationships: prev.relationships.filter((_, ri) => ri !== i),
+                                      relationships: prev.relationships.filter(
+                                        (_, ri) => ri !== i,
+                                      ),
                                     }))
                                   }
                                 >
@@ -912,17 +1191,21 @@ export default function EngineerWorkbench() {
 
           {mainTab === "diagram" && (
             <div className="flex-1 min-w-0 overflow-hidden">
-              <div className="p-3 h-full w-full flex flex-col gap-2">
-                <div className="rounded-xl border border-foreground/15 bg-card p-3 shrink-0">
+              <div className="h-full w-full flex flex-col gap-2">
+                <div className="mx-2 mt-2 rounded-xl border border-foreground/15 bg-card p-3 shrink-0">
                   <div className="label-caps mb-1">Draw.io render</div>
                   <p className="text-xs text-muted-foreground">
-                    This diagram is generated from the stored DB schema XML in MongoDB and rendered in the embed viewer.
+                    This diagram is generated from the stored DB schema XML in
+                    MongoDB and rendered in the embed viewer.
                   </p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    XML size: {drawioXml.length} chars {lastSavedAt ? `• Saved: ${new Date(lastSavedAt).toLocaleString()}` : ""}
+                    XML size: {drawioXml.length} chars{" "}
+                    {lastSavedAt
+                      ? `• Saved: ${new Date(lastSavedAt).toLocaleString()}`
+                      : ""}
                   </p>
                 </div>
-                <div className="min-h-0 flex-1 h-full overflow-auto">
+                <div className="min-h-0 flex-1 h-full overflow-auto px-2 pb-2">
                   <DrawioFrame xml={drawioXml} />
                 </div>
               </div>
@@ -942,7 +1225,9 @@ export default function EngineerWorkbench() {
                   <button
                     onClick={() => setSideTab("mentor")}
                     className={`flex-1 py-3 text-xs uppercase tracking-[0.14em] ${
-                      sideTab === "mentor" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
+                      sideTab === "mentor"
+                        ? "border-b-2 border-primary text-primary"
+                        : "text-muted-foreground"
                     }`}
                   >
                     Guided Mentor
@@ -950,7 +1235,9 @@ export default function EngineerWorkbench() {
                   <button
                     onClick={() => setSideTab("agent")}
                     className={`flex-1 py-3 text-xs uppercase tracking-[0.14em] ${
-                      sideTab === "agent" ? "border-b-2 border-primary text-primary" : "text-muted-foreground"
+                      sideTab === "agent"
+                        ? "border-b-2 border-primary text-primary"
+                        : "text-muted-foreground"
                     }`}
                   >
                     Schema Agent
@@ -968,7 +1255,9 @@ export default function EngineerWorkbench() {
                       </Badge>
                     </div>
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Ask your scale/performance decisions. The mentor first explains the terms in the question, then probes your architecture choices.
+                      Ask your scale/performance decisions. The mentor first
+                      explains the terms in the question, then probes your
+                      architecture choices.
                     </p>
                     {recommendedAnswers.length > 0 && (
                       <div className="mt-3 space-y-1">
@@ -988,9 +1277,17 @@ export default function EngineerWorkbench() {
 
                   <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {messages.map((m, i) => (
-                      <motion.div key={i} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
-                        <div className="label-caps mb-1">{m.role === "assistant" ? "Mentor" : "You"}</div>
-                        <p className={`text-sm leading-relaxed ${m.role === "assistant" ? "italic text-foreground/85" : "text-foreground"}`}>
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                      >
+                        <div className="label-caps mb-1">
+                          {m.role === "assistant" ? "Mentor" : "You"}
+                        </div>
+                        <p
+                          className={`text-sm leading-relaxed ${m.role === "assistant" ? "italic text-foreground/85" : "text-foreground"}`}
+                        >
                           {m.text}
                         </p>
                       </motion.div>
@@ -1001,8 +1298,12 @@ export default function EngineerWorkbench() {
                         <div className="space-y-2">
                           {terminology.map((t) => (
                             <div key={t.term}>
-                              <div className="text-xs font-semibold text-foreground">{t.term}</div>
-                              <p className="text-xs text-muted-foreground">{t.explanation}</p>
+                              <div className="text-xs font-semibold text-foreground">
+                                {t.term}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {t.explanation}
+                              </p>
                             </div>
                           ))}
                         </div>
@@ -1038,8 +1339,16 @@ export default function EngineerWorkbench() {
                         onChange={(e) => setMentorInput(e.target.value)}
                         placeholder="Ask the engineering mentor..."
                       />
-                      <Button type="submit" size="icon" disabled={!mentorInput.trim() || busy}>
-                        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      <Button
+                        type="submit"
+                        size="icon"
+                        disabled={!mentorInput.trim() || busy}
+                      >
+                        {busy ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
                       </Button>
                     </form>
                   </div>
@@ -1051,7 +1360,8 @@ export default function EngineerWorkbench() {
                   <div>
                     <div className="label-caps mb-2">Schema Change Agent</div>
                     <p className="text-xs text-muted-foreground">
-                      Request high-level DB changes and the agent updates schema + relationships + draw.io XML in MongoDB.
+                      Request high-level DB changes and the agent updates schema
+                      + relationships + draw.io XML in MongoDB.
                     </p>
                   </div>
                   <Textarea
@@ -1060,11 +1370,23 @@ export default function EngineerWorkbench() {
                     className="min-h-[180px] text-xs"
                     placeholder="Example: Add a subscriptions table linked to users with status, plan, and renewal_date. Create necessary relationships and constraints."
                   />
-                  <Button onClick={runSchemaAgent} disabled={!agentInput.trim() || busy} className="gap-2">
-                    {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+                  <Button
+                    onClick={runSchemaAgent}
+                    disabled={!agentInput.trim() || busy}
+                    className="gap-2"
+                  >
+                    {busy ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Bot className="w-4 h-4" />
+                    )}
                     Apply DB changes
                   </Button>
-                  <Button variant="outline" onClick={loadFromDb} className="gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={loadFromDb}
+                    className="gap-2"
+                  >
                     <Check className="w-4 h-4" />
                     Refresh from DB
                   </Button>

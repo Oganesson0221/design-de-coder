@@ -26,6 +26,7 @@ export interface DbSchemaData {
 
 interface SessionResponse {
   projectId: string;
+  projectTitle?: string;
   requirementsMarkdown: string;
   dbSchema: DbSchemaData;
   dbSchemaMermaid: string;
@@ -38,6 +39,7 @@ interface SessionResponse {
 
 interface SchemaResponse {
   projectId: string;
+  projectTitle?: string;
   dbSchema: DbSchemaData;
   dbSchemaMermaid: string;
   dbSchemaDrawioXml: string;
@@ -46,6 +48,13 @@ interface SchemaResponse {
   lastMentorQuestion: string;
   updatedAt: string;
   requirementsMarkdown?: string;
+}
+
+export interface EngineerProjectSummary {
+  projectId: string;
+  title: string;
+  source: "projects" | "session" | "projects+session";
+  updatedAt?: string;
 }
 
 async function asJson<T>(response: Response): Promise<T> {
@@ -131,4 +140,9 @@ export async function applySchemaAgentChange({
     body: JSON.stringify({ projectId, instruction }),
   });
   return asJson<SchemaResponse>(response);
+}
+
+export async function listEngineerProjects() {
+  const response = await fetch("/api/engineer/projects");
+  return asJson<{ projects: EngineerProjectSummary[] }>(response);
 }
