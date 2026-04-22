@@ -1,26 +1,32 @@
 import { create } from "zustand";
-import type {
-  BiasDetectionStatus,
-  BiasDetectionResult,
-  BiasDetectionError,
-  Persona,
-  PersonaJourneyResult,
-} from "@/types/bias";
+import type { UnbiasJson, JourneyResult, Persona } from "@/services/biasApi";
+
+export type BiasDetectionStatus =
+  | "idle"
+  | "loading-project"
+  | "generating-personas"
+  | "simulating-journeys"
+  | "calculating-score"
+  | "complete"
+  | "error";
+
+export interface BiasDetectionError {
+  stage: BiasDetectionStatus;
+  message: string;
+  retryable: boolean;
+}
 
 interface BiasState {
   status: BiasDetectionStatus;
   error: BiasDetectionError | null;
-  personas: Persona[];
-  journeyResults: PersonaJourneyResult[];
-  result: BiasDetectionResult | null;
-  history: BiasDetectionResult[];
+  projectId: string | null;
+  result: UnbiasJson | null;
+  version: number | null;
 
   setStatus: (status: BiasDetectionStatus) => void;
   setError: (error: BiasDetectionError | null) => void;
-  setPersonas: (personas: Persona[]) => void;
-  addJourneyResult: (result: PersonaJourneyResult) => void;
-  setJourneyResults: (results: PersonaJourneyResult[]) => void;
-  setResult: (result: BiasDetectionResult) => void;
+  setProjectId: (projectId: string) => void;
+  setResult: (result: UnbiasJson, version: number) => void;
   reset: () => void;
   clearError: () => void;
 }
@@ -28,10 +34,9 @@ interface BiasState {
 const initialState = {
   status: "idle" as BiasDetectionStatus,
   error: null,
-  personas: [],
-  journeyResults: [],
+  projectId: null,
   result: null,
-  history: [],
+  version: null,
 };
 
 export const useBiasStore = create<BiasState>((set) => ({
@@ -45,27 +50,25 @@ export const useBiasStore = create<BiasState>((set) => ({
       status: error ? "error" : "idle",
     }),
 
-  setPersonas: (personas) => set({ personas }),
+  setProjectId: (projectId) => set({ projectId }),
 
-  addJourneyResult: (result) =>
-    set((s) => ({ journeyResults: [...s.journeyResults, result] })),
-
-  setJourneyResults: (journeyResults) => set({ journeyResults }),
-
-  setResult: (result) =>
-    set((s) => ({
+  setResult: (result, version) =>
+    set({
       result,
+      version,
       status: "complete",
-      history: [result, ...s.history].slice(0, 10),
-    })),
+    }),
 
   reset: () =>
     set({
       status: "idle",
       error: null,
-      personas: [],
-      journeyResults: [],
+      result: null,
+      version: null,
     }),
 
   clearError: () => set({ error: null, status: "idle" }),
 }));
+
+// Re-export types for convenience
+export type { UnbiasJson, JourneyResult, Persona };

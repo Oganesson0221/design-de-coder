@@ -4,13 +4,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import type { BiasAnalysisResult } from "@/types/bias";
+import type { BiasMetric } from "@/services/biasApi";
 
 interface ExplanationSectionProps {
-  analysis: BiasAnalysisResult;
+  metrics: BiasMetric[];
+  explanation: string;
+  methodology: string;
 }
 
-export function ExplanationSection({ analysis }: ExplanationSectionProps) {
+export function ExplanationSection({ metrics, explanation, methodology }: ExplanationSectionProps) {
   return (
     <div className="border border-foreground/20 bg-card">
       <Accordion type="single" collapsible className="w-full">
@@ -23,50 +25,43 @@ export function ExplanationSection({ analysis }: ExplanationSectionProps) {
               <div>
                 <h4 className="font-display text-sm font-medium mb-2">Methodology</h4>
                 <p className="font-display text-sm text-muted-foreground leading-relaxed">
-                  {analysis.methodology}
+                  {methodology}
                 </p>
               </div>
 
               <div>
                 <h4 className="font-display text-sm font-medium mb-2">Analysis</h4>
                 <p className="font-display text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                  {analysis.explanation}
+                  {explanation}
                 </p>
               </div>
 
               <div>
                 <h4 className="font-display text-sm font-medium mb-3">Metric Breakdown</h4>
                 <div className="space-y-3">
-                  {analysis.metrics.map((metric) => (
+                  {metrics.map((metric) => (
                     <div
-                      key={metric.name}
+                      key={metric.metric}
                       className="border border-foreground/10 p-3 bg-secondary/20"
                     >
                       <div className="flex items-baseline justify-between mb-1">
                         <span className="font-display text-sm font-medium">
-                          {metric.name}
+                          {metric.metric}
                         </span>
                         <span className="font-mono text-sm">
-                          {Math.round(metric.score)}/100
+                          {Math.round(metric.current_score)}/100
                           <span className="text-muted-foreground text-xs ml-1">
-                            ({Math.round(metric.weight * 100)}% weight)
+                            (target: {metric.target})
                           </span>
                         </span>
                       </div>
                       <p className="font-display text-xs text-muted-foreground mb-2">
-                        {metric.description}
+                        {metric.definition}
                       </p>
-                      {metric.findings.length > 0 && (
-                        <ul className="list-disc list-inside space-y-0.5">
-                          {metric.findings.map((finding, i) => (
-                            <li
-                              key={i}
-                              className="font-display text-xs text-muted-foreground"
-                            >
-                              {finding}
-                            </li>
-                          ))}
-                        </ul>
+                      {metric.bias_scoring_strategy && (
+                        <p className="font-display text-xs text-muted-foreground/70 italic">
+                          {metric.bias_scoring_strategy}
+                        </p>
                       )}
                     </div>
                   ))}

@@ -1,12 +1,14 @@
-import type { BiasRecommendation, RecommendationPriority } from "@/types/bias";
+import type { BiasRecommendation } from "@/services/biasApi";
 import { AlertCircle, AlertTriangle, Info, Lightbulb } from "lucide-react";
 
 interface RecommendationsSectionProps {
   recommendations: BiasRecommendation[];
 }
 
+type Priority = BiasRecommendation["priority"];
+
 const priorityConfig: Record<
-  RecommendationPriority,
+  Priority,
   { icon: typeof AlertCircle; label: string; className: string }
 > = {
   critical: {
@@ -34,10 +36,10 @@ const priorityConfig: Record<
 export function RecommendationsSection({
   recommendations,
 }: RecommendationsSectionProps) {
-  if (recommendations.length === 0) return null;
+  if (!recommendations || recommendations.length === 0) return null;
 
   const sorted = [...recommendations].sort((a, b) => {
-    const order: RecommendationPriority[] = ["critical", "high", "medium", "low"];
+    const order: Priority[] = ["critical", "high", "medium", "low"];
     return order.indexOf(a.priority) - order.indexOf(b.priority);
   });
 
@@ -70,7 +72,7 @@ export function RecommendationsSection({
                   <p className="mt-1 font-display text-sm opacity-90">
                     {rec.description}
                   </p>
-                  {rec.affectedPersonas.length > 0 && (
+                  {rec.affectedPersonas && rec.affectedPersonas.length > 0 && (
                     <p className="mt-2 font-display text-xs opacity-70">
                       Benefits: {rec.affectedPersonas.join(", ")}
                     </p>

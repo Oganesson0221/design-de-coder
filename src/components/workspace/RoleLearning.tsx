@@ -136,7 +136,7 @@ const RoleLearning = () => {
 
         {/* Bias Detector for ethicist role */}
         {role === "ethicist" ? (
-          <BiasDetector />
+          <BiasDetector projectId="proj_1776564436422_3ko44" />
         ) : (
           <>
             {/* Exercises for PM and Engineer roles */}

@@ -1,1 +1,0 @@
-export { openaiClient } from "./client";

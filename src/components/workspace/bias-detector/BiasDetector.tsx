@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle } from "lucide-react";
 import { useBiasDetector } from "@/hooks/useBiasDetector";
@@ -8,20 +9,42 @@ import { PersonaTable } from "./PersonaTable";
 import { ExplanationSection } from "./ExplanationSection";
 import { RecommendationsSection } from "./RecommendationsSection";
 
-export function BiasDetector() {
+interface BiasDetectorProps {
+  projectId: string;
+}
+
+export function BiasDetector({ projectId }: BiasDetectorProps) {
   const {
     status,
     error,
-    journeyResults,
     result,
+    version,
     generateBiasReport,
+    loadExistingResult,
     clearError,
-  } = useBiasDetector();
+  } = useBiasDetector(projectId);
+
+  useEffect(() => {
+    if (projectId) {
+      loadExistingResult();
+    }
+  }, [projectId, loadExistingResult]);
 
   const isLoading =
+    status === "loading-project" ||
     status === "generating-personas" ||
     status === "simulating-journeys" ||
     status === "calculating-score";
+
+  if (!projectId) {
+    return (
+      <div className="border border-foreground/20 bg-card p-6 text-center">
+        <p className="font-display text-muted-foreground">
+          No project selected. Please select a project to analyze for bias.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -32,6 +55,11 @@ export function BiasDetector() {
             create diverse test personas, simulate their journeys through your system,
             and identify potential barriers and exclusion patterns.
           </p>
+          {version && (
+            <p className="mt-2 font-mono text-xs text-muted-foreground">
+              Project: {projectId} | Version: {version}
+            </p>
+          )}
         </div>
         <GenerateButton
           status={status}
@@ -80,20 +108,12 @@ export function BiasDetector() {
             <div className="flex items-center gap-3">
               <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
               <span className="font-display text-sm">
-                {status === "generating-personas" && "Creating diverse test personas..."}
-                {status === "simulating-journeys" &&
-                  `Simulating user journeys (${journeyResults.length} complete)...`}
+                {status === "loading-project" && "Loading project data..."}
+                {status === "generating-personas" && "Generating bias analysis (this may take a minute)..."}
+                {status === "simulating-journeys" && "Simulating user journeys..."}
                 {status === "calculating-score" && "Calculating bias score..."}
               </span>
             </div>
-            {journeyResults.length > 0 && status === "simulating-journeys" && (
-              <div className="pl-5">
-                <p className="font-display text-xs text-muted-foreground">
-                  Latest: {journeyResults[journeyResults.length - 1]?.personaName} -{" "}
-                  {journeyResults[journeyResults.length - 1]?.outcomeLabel}
-                </p>
-              </div>
-            )}
           </div>
         </motion.div>
       )}
@@ -108,22 +128,24 @@ export function BiasDetector() {
             className="space-y-6"
           >
             <BiasScoreDisplay
-              score={result.analysis.overallScore}
-              label={result.analysis.scoreLabel}
+              score={result.overall_score}
+              label={result.score_label}
             />
 
-            <PersonaTable results={result.journeyResults} />
+            <PersonaTable results={result.journey_results} />
 
-            <ExplanationSection analysis={result.analysis} />
+            <ExplanationSection
+              metrics={result.metrics}
+              explanation={result.explanation}
+              methodology={result.methodology}
+            />
 
             <RecommendationsSection
-              recommendations={result.analysis.recommendations}
+              recommendations={result.recommendations}
             />
 
             <p className="font-display text-xs text-muted-foreground text-center">
-              Analysis generated at{" "}
-              {result.generatedAt.toLocaleString()} for "{result.inputSummary.idea}"
-              with {result.inputSummary.componentCount} architecture components.
+              Analysis version {version} for project {projectId}
             </p>
           </motion.div>
         )}

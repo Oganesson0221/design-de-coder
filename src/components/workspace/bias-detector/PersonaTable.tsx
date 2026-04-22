@@ -1,11 +1,11 @@
-import type { PersonaJourneyResult } from "@/types/bias";
+import type { JourneyResult } from "@/services/biasApi";
 import { Check, X, AlertTriangle, MinusCircle, LogOut } from "lucide-react";
 
 interface PersonaTableProps {
-  results: PersonaJourneyResult[];
+  results: JourneyResult[];
 }
 
-function getOutcomeIcon(outcome: PersonaJourneyResult["outcome"]) {
+function getOutcomeIcon(outcome: JourneyResult["outcome"]) {
   switch (outcome) {
     case "success":
       return <Check className="h-4 w-4 text-green-600" />;
@@ -22,7 +22,7 @@ function getOutcomeIcon(outcome: PersonaJourneyResult["outcome"]) {
   }
 }
 
-function getOutcomeClass(outcome: PersonaJourneyResult["outcome"]): string {
+function getOutcomeClass(outcome: JourneyResult["outcome"]): string {
   switch (outcome) {
     case "success":
       return "text-green-600";
@@ -40,7 +40,7 @@ function getOutcomeClass(outcome: PersonaJourneyResult["outcome"]): string {
 }
 
 export function PersonaTable({ results }: PersonaTableProps) {
-  if (results.length === 0) return null;
+  if (!results || results.length === 0) return null;
 
   return (
     <div className="border border-foreground/20 bg-card">
