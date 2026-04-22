@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Logo } from "@/components/Logo";
@@ -86,6 +86,10 @@ const Onboarding = () => {
   const navigate = useNavigate();
   const setAnswers = useProject((s) => s.setAnswers);
   const setOnboarded = useProject((s) => s.setOnboarded);
+  const setProjectId = useProject((s) => s.setProjectId);
+  const setRequirementsDoc = useProject((s) => s.setRequirementsDoc);
+  const setComponents = useProject((s) => s.setComponents);
+  const setConnections = useProject((s) => s.setConnections);
   const [stepIndex, setStepIndex] = useState(0);
   const [values, setValues] = useState<Record<StepKey, string>>({ idea: "", audience: "", flow: "" });
   const [activeRec, setActiveRec] = useState<Record<StepKey, number | null>>({
@@ -93,6 +97,7 @@ const Onboarding = () => {
     audience: null,
     flow: null,
   });
+  const [loading, setLoading] = useState(false);
 
   const step = steps[stepIndex];
   const value = values[step.key];
@@ -103,7 +108,7 @@ const Onboarding = () => {
     setActiveRec((s) => ({ ...s, [step.key]: i }));
   };
 
-  const next = () => {
+  const next = async () => {
     if (!value.trim()) {
       toast("A few words will do — or pick a suggestion below.");
       return;
@@ -111,9 +116,35 @@ const Onboarding = () => {
     if (stepIndex < steps.length - 1) {
       setStepIndex((i) => i + 1);
     } else {
+      // Final step — call backend
       setAnswers(values);
-      setOnboarded(true);
-      navigate("/workspace");
+      setLoading(true);
+      try {
+        const res = await fetch("/api/projects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(values),
+        });
+        if (!res.ok) throw new Error("Server error");
+        const data = await res.json() as {
+          projectId: string;
+          requirementsDoc: string;
+          components: unknown[];
+          connections: unknown[];
+        };
+        setProjectId(data.projectId);
+        setRequirementsDoc(data.requirementsDoc);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setComponents(data.components as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setConnections(data.connections as any);
+        setOnboarded(true);
+        navigate("/workspace");
+      } catch {
+        toast("Could not reach the server — check that the backend is running on port 3001.");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -195,7 +226,7 @@ const Onboarding = () => {
                   placeholder={step.placeholder}
                   className="min-h-[180px] resize-none rounded-none border-0 bg-transparent p-6 font-display text-xl leading-relaxed focus-visible:ring-0"
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) next();
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void next();
                   }}
                 />
               </div>
@@ -246,7 +277,7 @@ const Onboarding = () => {
                           >
                             <div className="label-caps mb-2 group-hover:text-primary">{rec.label}</div>
                             <p className="font-display text-sm italic leading-relaxed text-foreground/80">
-                              “{rec.text}”
+                              "{rec.text}"
                             </p>
                           </button>
                         ))}
@@ -268,12 +299,19 @@ const Onboarding = () => {
           </AnimatePresence>
 
           <div className="mt-12 flex items-center justify-between border-t border-foreground/15 pt-6">
-            <Button onClick={prev} variant="ghost" size="lg">
+            <Button onClick={prev} variant="ghost" size="lg" disabled={loading}>
               <ArrowLeft className="h-4 w-4" /> Back
             </Button>
-            <Button onClick={next} variant="hero" size="lg">
-              {stepIndex === steps.length - 1 ? "Draft my system" : "Continue"}
-              <ArrowRight className="h-4 w-4" />
+            <Button onClick={() => void next()} variant="hero" size="lg" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Drafting your system…
+                </>
+              ) : stepIndex === steps.length - 1 ? (
+                <>Draft my system <ArrowRight className="h-4 w-4" /></>
+              ) : (
+                <>Continue <ArrowRight className="h-4 w-4" /></>
+              )}
             </Button>
           </div>
         </div>
