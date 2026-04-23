@@ -1212,11 +1212,47 @@ app.post("/api/bias/generate", async (req, res) => {
     const { projectId } = req.body;
     if (!projectId) return res.status(400).json({ error: "projectId is required" });
 
-    // Fetch project data
-    const [requirements, schema] = await Promise.all([
-      requirementsCollection.findOne({ project_id: projectId }, { sort: { version: -1 } }),
-      schemasCollection.findOne({ project_id: projectId }, { sort: { version: -1 } })
-    ]);
+    // Try to fetch from requirements collection first, then fall back to projects collection
+    let requirements = await requirementsCollection.findOne({ project_id: projectId }, { sort: { version: -1 } });
+    let schema = await schemasCollection.findOne({ project_id: projectId }, { sort: { version: -1 } });
+
+    // Fallback: check projects collection if requirements not found
+    if (!requirements) {
+      const { ObjectId } = await import("mongodb");
+      let projectDoc = null;
+
+      // Try as ObjectId first, then as string project_id
+      if (ObjectId.isValid(projectId)) {
+        try {
+          projectDoc = await projectsCollection.findOne({ _id: new ObjectId(projectId) });
+        } catch {}
+      }
+      if (!projectDoc) {
+        projectDoc = await projectsCollection.findOne({ projectId: projectId });
+      }
+
+      if (projectDoc && projectDoc.requirementsDoc) {
+        requirements = {
+          project_id: projectId,
+          requirements_markdown: projectDoc.requirementsDoc,
+          version: 1
+        };
+        // Build schema from components if available
+        if (projectDoc.components && projectDoc.components.length > 0) {
+          schema = {
+            project_id: projectId,
+            schema_json: {
+              collections: projectDoc.components.map(c => ({
+                name: c.name,
+                description: c.description || `${c.tech} - ${c.kind}`,
+                fields: []
+              }))
+            },
+            version: 1
+          };
+        }
+      }
+    }
 
     if (!requirements) {
       return res.status(404).json({ error: "Requirements not found for project" });
