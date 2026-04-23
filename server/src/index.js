@@ -19,6 +19,7 @@ const openai = openAiApiKey ? new OpenAI({ apiKey: openAiApiKey }) : null;
 let db;
 let sessions;
 let projects;
+let deconstructModules;
 
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
@@ -343,6 +344,313 @@ function wrapLine(input, maxLen) {
   }
   if (current) out.push(current);
   return out;
+}
+
+const DECONSTRUCT_SEED_MODULES = [
+  {
+    id: "instagram",
+    title: "Instagram",
+    subtitle: "Photo/video sharing with feed ranking, social graph, and media pipelines.",
+    icon: "camera",
+    terminology: [
+      {
+        term: "CDN",
+        explanation:
+          "A Content Delivery Network caches media close to users to reduce latency and backend load.",
+      },
+      {
+        term: "Fan-out on write",
+        explanation:
+          "Precomputing feed entries when content is created so reads are faster later.",
+      },
+      {
+        term: "Object storage",
+        explanation:
+          "Durable storage optimized for large files (images/videos), typically not relational rows.",
+      },
+    ],
+    diagramPrompt:
+      "Sketch an architecture for Instagram-like feed + upload flow. Include client, API gateway, media processing workers, object storage, CDN, feed service, graph store/cache, and metadata DB.",
+    questions: [
+      {
+        id: "insta-q1",
+        prompt: "Where should uploaded photos/videos primarily be stored?",
+        hint: "Think about large binary assets and global delivery.",
+        options: [
+          {
+            text: "Object storage + CDN, with metadata in DB",
+            correct: true,
+            note: "Correct. Blob storage + CDN is the standard media pattern at scale.",
+          },
+          {
+            text: "Directly in relational DB blob columns",
+            correct: false,
+            note: "Possible but usually expensive and operationally painful at this scale.",
+          },
+          {
+            text: "Only on the uploader device",
+            correct: false,
+            note: "That would break cross-device/social access.",
+          },
+        ],
+      },
+      {
+        id: "insta-q2",
+        prompt: "What feed strategy is most realistic for large follower graphs?",
+        hint: "You often mix models by account size.",
+        options: [
+          {
+            text: "Hybrid fan-out with selective fan-out-on-read",
+            correct: true,
+            note: "Correct. Hybrid strategies manage celebrity skew and read latency.",
+          },
+          {
+            text: "Pure synchronous SQL join at request time for every user",
+            correct: false,
+            note: "This becomes costly under high traffic and graph complexity.",
+          },
+        ],
+      },
+    ],
+    evaluation: {
+      requiredKeywords: [
+        "cdn",
+        "object storage",
+        "worker",
+        "queue",
+        "feed",
+        "cache",
+        "database",
+      ],
+      bonusKeywords: ["ranking", "fan-out", "shard", "timeline", "media processing"],
+    },
+  },
+  {
+    id: "spotify",
+    title: "Spotify",
+    subtitle: "Low-latency music streaming, recommendation pipelines, and playlist graph.",
+    icon: "music",
+    terminology: [
+      {
+        term: "Adaptive bitrate",
+        explanation:
+          "Dynamically selecting stream quality based on network conditions to avoid buffering.",
+      },
+      {
+        term: "Recommendation pipeline",
+        explanation:
+          "Batch + near-real-time jobs that compute embeddings/signals for personalized ranking.",
+      },
+      {
+        term: "Edge cache",
+        explanation:
+          "Regional cache serving frequently requested tracks to reduce origin fetches.",
+      },
+    ],
+    diagramPrompt:
+      "Design Spotify-like architecture: client playback service, auth, catalog API, recommendation service, stream manifest service, CDN/edge cache, analytics pipeline, and metadata DB.",
+    questions: [
+      {
+        id: "spot-q1",
+        prompt: "Which capability is essential for stable playback on unreliable mobile networks?",
+        hint: "Users care most about uninterrupted audio.",
+        options: [
+          {
+            text: "Adaptive bitrate streaming + buffered segments",
+            correct: true,
+            note: "Correct. ABR + buffering is critical for resilient playback.",
+          },
+          {
+            text: "Single fixed high bitrate stream",
+            correct: false,
+            note: "That increases stalls for users with fluctuating bandwidth.",
+          },
+        ],
+      },
+      {
+        id: "spot-q2",
+        prompt: "How should recommendation features generally be computed?",
+        hint: "Think mixed latency pipeline rather than one request path.",
+        options: [
+          {
+            text: "Offline batch + online updates, then serve via low-latency store",
+            correct: true,
+            note: "Correct. Hybrid offline/online pipelines balance quality and speed.",
+          },
+          {
+            text: "Train model synchronously on each user request",
+            correct: false,
+            note: "That is too slow and expensive for request-time serving.",
+          },
+        ],
+      },
+    ],
+    evaluation: {
+      requiredKeywords: [
+        "cdn",
+        "stream",
+        "catalog",
+        "recommendation",
+        "analytics",
+        "database",
+      ],
+      bonusKeywords: ["abr", "buffer", "queue", "feature store", "event pipeline"],
+    },
+  },
+  {
+    id: "grab",
+    title: "Grab",
+    subtitle: "Real-time location matching, dispatch, payments, and trip state machine.",
+    icon: "car",
+    terminology: [
+      {
+        term: "Geospatial index",
+        explanation:
+          "Data index structure to efficiently query nearby drivers/riders based on coordinates.",
+      },
+      {
+        term: "Dispatch service",
+        explanation:
+          "Service that matches riders to drivers using location, ETA, and pricing constraints.",
+      },
+      {
+        term: "Event-driven state machine",
+        explanation:
+          "Trip lifecycle transitions (requested, matched, arrived, completed) processed via events.",
+      },
+    ],
+    diagramPrompt:
+      "Design Grab-like ride architecture: rider app, driver app, real-time location ingestion, geospatial matcher, dispatch, trip state service, pricing, notifications, and payment integration.",
+    questions: [
+      {
+        id: "grab-q1",
+        prompt: "What backend capability is most central to matching nearby drivers quickly?",
+        hint: "Distance and ETA queries dominate.",
+        options: [
+          {
+            text: "Geospatial indexing + low-latency location store",
+            correct: true,
+            note: "Correct. Efficient nearby queries are core for dispatch latency.",
+          },
+          {
+            text: "Only nightly batch job assignment",
+            correct: false,
+            note: "Rides need real-time matching, not batch allocation.",
+          },
+        ],
+      },
+      {
+        id: "grab-q2",
+        prompt: "How should trip status updates scale under high city traffic?",
+        hint: "Many producer/consumer components need the same updates.",
+        options: [
+          {
+            text: "Event-driven pipeline with queue/stream + idempotent consumers",
+            correct: true,
+            note: "Correct. Event-driven flow improves decoupling and reliability.",
+          },
+          {
+            text: "Single monolithic transaction for every subsystem synchronously",
+            correct: false,
+            note: "That increases coupling and failure blast radius.",
+          },
+        ],
+      },
+    ],
+    evaluation: {
+      requiredKeywords: [
+        "geospatial",
+        "dispatch",
+        "location",
+        "queue",
+        "payment",
+        "notification",
+      ],
+      bonusKeywords: ["state machine", "eta", "idempotent", "websocket", "stream"],
+    },
+  },
+  {
+    id: "linkedin",
+    title: "LinkedIn",
+    subtitle: "Professional graph, feed ranking, search, and messaging at enterprise scale.",
+    icon: "briefcase",
+    terminology: [
+      {
+        term: "Graph edge",
+        explanation: "A connection record between two entities (e.g., member-to-member).",
+      },
+      {
+        term: "Inverted index",
+        explanation:
+          "A search index mapping terms to documents/profiles for fast keyword retrieval.",
+      },
+      {
+        term: "Ranking feature store",
+        explanation: "Low-latency store of precomputed features used by ranking models.",
+      },
+    ],
+    diagramPrompt:
+      "Create LinkedIn-like architecture: profile service, social graph service, feed generation/ranking, search index, messaging, notifications, and analytics pipeline.",
+    questions: [
+      {
+        id: "li-q1",
+        prompt: "What storage strategy best supports member connection traversal?",
+        hint: "Lookups of 1-hop and 2-hop network are common.",
+        options: [
+          {
+            text: "Graph-aware model (or adjacency model) with caching",
+            correct: true,
+            note: "Correct. Graph adjacency and cache are key for connection queries.",
+          },
+          {
+            text: "Only flat file exports queried at runtime",
+            correct: false,
+            note: "Not viable for interactive connection queries.",
+          },
+        ],
+      },
+      {
+        id: "li-q2",
+        prompt: "What should power profile/job keyword search?",
+        hint: "Ranking by text relevance and facets is required.",
+        options: [
+          {
+            text: "Dedicated search index (inverted index)",
+            correct: true,
+            note: "Correct. Search engines are built for relevance and faceting.",
+          },
+          {
+            text: "Only primary OLTP database text scans",
+            correct: false,
+            note: "This usually performs poorly for rich search workloads.",
+          },
+        ],
+      },
+    ],
+    evaluation: {
+      requiredKeywords: [
+        "graph",
+        "feed",
+        "search",
+        "index",
+        "messaging",
+        "notification",
+      ],
+      bonusKeywords: ["ranking", "feature store", "cache", "analytics", "pipeline"],
+    },
+  },
+];
+
+async function ensureDeconstructSeed() {
+  const count = await deconstructModules.countDocuments();
+  if (count > 0) return;
+  await deconstructModules.insertMany(
+    DECONSTRUCT_SEED_MODULES.map((m) => ({
+      ...m,
+      createdAt: nowIso(),
+      updatedAt: nowIso(),
+    })),
+  );
 }
 
 function fallbackMentorOutput(userMessage) {
@@ -1037,6 +1345,253 @@ app.get("/api/engineer/projects", async (_req, res) => {
       return res.status(500).json({ error: "Failed to list projects" });
     }
   });
+
+app.get("/api/deconstruct/modules", async (_req, res) => {
+  try {
+    const modules = await deconstructModules
+      .find({}, { projection: { _id: 0 } })
+      .sort({ updatedAt: -1 })
+      .toArray();
+    return res.json({ modules });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to load deconstruction modules" });
+  }
+});
+
+function deconstructLocalTextEval(expectedAnswer, answer) {
+  const expectedTokens = Array.from(
+    new Set(
+      String(expectedAnswer || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 3),
+    ),
+  ).slice(0, 14);
+
+  const answerText = String(answer || "").toLowerCase();
+  const matched = expectedTokens.filter((token) => answerText.includes(token));
+  const ratio = expectedTokens.length === 0 ? 0.6 : matched.length / expectedTokens.length;
+  const score = Math.max(1, Math.min(10, Math.round(ratio * 10)));
+  const pointsAwarded = score >= 8 ? 12 : score >= 5 ? 8 : 4;
+
+  const feedback =
+    score >= 8
+      ? "Strong answer. Clear architecture reasoning and relevant components."
+      : score >= 5
+        ? "Good direction. Name concrete services, data stores, and one risk mitigation."
+        : "Decent start. Add clearer request flow and ownership across services.";
+
+  return {
+    score,
+    feedback,
+    recommended: String(expectedAnswer || ""),
+    pointsAwarded,
+  };
+}
+
+app.post("/api/deconstruct/evaluate-answer", async (req, res) => {
+  try {
+    const moduleId = String(req.body?.moduleId || "").trim();
+    const questionId = String(req.body?.questionId || "").trim();
+    const question = String(req.body?.question || "").trim();
+    const hint = String(req.body?.hint || "").trim();
+    const expectedAnswer = String(req.body?.expectedAnswer || "").trim();
+    const answer = String(req.body?.answer || "").trim();
+
+    if (!moduleId || !questionId || !question || !answer) {
+      return res
+        .status(400)
+        .json({ error: "moduleId, questionId, question, and answer are required" });
+    }
+
+    const module = await deconstructModules.findOne({ id: moduleId });
+    if (!module) return res.status(404).json({ error: "Module not found" });
+
+    if (!openai) {
+      return res.json(deconstructLocalTextEval(expectedAnswer, answer));
+    }
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+      temperature: 0.2,
+      max_tokens: 450,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a supportive system design mentor evaluating a learner answer. Return strict JSON with keys: score (1-10 integer), feedback (short paragraph), recommended (one concise improved answer), pointsAwarded (integer where 12=strong, 8=good, 4=early attempt). Be encouraging and specific.",
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            moduleTitle: module.title,
+            questionId,
+            question,
+            hint,
+            expectedAnswer,
+            learnerAnswer: answer,
+          }),
+        },
+      ],
+    });
+
+    const raw = completion.choices?.[0]?.message?.content || "{}";
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = null;
+    }
+
+    if (!parsed || typeof parsed !== "object") {
+      return res.json(deconstructLocalTextEval(expectedAnswer, answer));
+    }
+
+    const score = Math.max(1, Math.min(10, Number(parsed.score || 5)));
+    const pointsAwarded =
+      Number.isFinite(Number(parsed.pointsAwarded))
+        ? Math.max(0, Math.round(Number(parsed.pointsAwarded)))
+        : score >= 8
+          ? 12
+          : score >= 5
+            ? 8
+            : 4;
+
+    return res.json({
+      score,
+      feedback:
+        String(parsed.feedback || "").trim() ||
+        "Good attempt. Add clearer component boundaries and data flow.",
+      recommended: String(parsed.recommended || expectedAnswer || "").trim(),
+      pointsAwarded,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to evaluate deconstruction question answer" });
+  }
+});
+
+app.post("/api/deconstruct/evaluate", async (req, res) => {
+  try {
+    const moduleId = String(req.body?.moduleId || "").trim();
+    const answer = String(req.body?.answer || "").trim();
+    if (!moduleId || !answer) {
+      return res.status(400).json({ error: "moduleId and answer are required" });
+    }
+
+    const module = await deconstructModules.findOne({ id: moduleId });
+    if (!module) return res.status(404).json({ error: "Module not found" });
+
+    const evaluation = module.evaluation || { requiredKeywords: [], bonusKeywords: [] };
+    const answerLower = answer.toLowerCase();
+    const requiredMatches = (evaluation.requiredKeywords || []).filter((k) =>
+      answerLower.includes(String(k).toLowerCase()),
+    );
+    const bonusMatches = (evaluation.bonusKeywords || []).filter((k) =>
+      answerLower.includes(String(k).toLowerCase()),
+    );
+
+    const requiredTotal = Math.max(1, (evaluation.requiredKeywords || []).length);
+    const requiredRatio = requiredMatches.length / requiredTotal;
+    let score = Math.round(requiredRatio * 80 + Math.min(20, bonusMatches.length * 5));
+    score = Math.max(0, Math.min(100, score));
+
+    const pointsAwarded = score >= 75 ? 20 : score >= 50 ? 10 : score >= 30 ? 5 : 0;
+    const passed = score >= 50;
+    const missing = (evaluation.requiredKeywords || []).filter(
+      (k) => !requiredMatches.includes(k),
+    );
+
+    const feedback = passed
+      ? "Strong architecture decomposition. You identified most critical services and data paths."
+      : "Good start. Add the missing core components and their interactions to improve correctness.";
+    const hints = missing.slice(0, 4).map(
+      (k) => `Include how "${k}" fits into request flow and data consistency.`,
+    );
+
+    return res.json({
+      passed,
+      score,
+      pointsAwarded,
+      matched: requiredMatches,
+      bonusMatched: bonusMatches,
+      missing,
+      feedback,
+      hints,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to evaluate deconstruction answer" });
+  }
+});
+
+app.post("/api/deconstruct/mentor", async (req, res) => {
+  try {
+    const moduleId = String(req.body?.moduleId || "").trim();
+    const message = String(req.body?.message || "").trim();
+    if (!moduleId || !message) {
+      return res.status(400).json({ error: "moduleId and message are required" });
+    }
+
+    const module = await deconstructModules.findOne({ id: moduleId });
+    if (!module) return res.status(404).json({ error: "Module not found" });
+
+    const termLines = (module.terminology || [])
+      .slice(0, 5)
+      .map((t) => `- ${t.term}: ${t.explanation}`)
+      .join("\n");
+
+    if (!openai) {
+      return res.json({
+        reply:
+          `Great direction. Start by drawing the user request path first, then add async processing and data stores.\n\n` +
+          `For ${module.title}, prioritize: ${((module.evaluation?.requiredKeywords || []).slice(0, 4)).join(", ")}.`,
+        terminology: module.terminology || [],
+      });
+    }
+
+    const completion = await openai.responses.create({
+      model: "gpt-5-mini",
+      input: [
+        {
+          role: "system",
+          content: [
+            {
+              type: "input_text",
+              text:
+                "You are a supportive system design mentor. Give concise, practical hints and define difficult terms clearly. Encourage the learner.",
+            },
+          ],
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: JSON.stringify({
+                moduleTitle: module.title,
+                modulePrompt: module.diagramPrompt,
+                terminology: termLines,
+                userMessage: message,
+              }),
+            },
+          ],
+        },
+      ],
+    });
+
+    return res.json({
+      reply: completion.output_text || "Try mapping request flow, data stores, and async workers step by step.",
+      terminology: module.terminology || [],
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ error: "Failed to generate mentor guidance" });
+  }
+});
 
 // ==================== BIAS DETECTOR API ====================
 
@@ -1985,6 +2540,7 @@ async function start() {
   db = mongo.db("straightup");
   sessions = db.collection("engineer_sessions");
   projects = db.collection("projects");
+  deconstructModules = db.collection("deconstruct_modules");
   projectsCollection = db.collection("projects");
   schemasCollection = db.collection("schemas");
   requirementsCollection = db.collection("requirements");
@@ -1992,6 +2548,8 @@ async function start() {
   chatMessagesCollection = db.collection("chat_messages");
 
   await sessions.createIndex({ projectId: 1 }, { unique: true });
+  await deconstructModules.createIndex({ id: 1 }, { unique: true });
+  await ensureDeconstructSeed();
   await chatMessagesCollection.createIndex({ projectId: 1, createdAt: -1 });
   app.listen(port, () => {
     console.log(

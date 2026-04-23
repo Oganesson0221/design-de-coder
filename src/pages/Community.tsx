@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowBigUp,
@@ -19,9 +19,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useProject } from "@/stores/project";
 import { toast } from "sonner";
+import { listEngineerProjects } from "@/services/engineerApi";
 
 interface Post {
   id: string;
+  projectId?: string;
+  source?: "mock" | "straightup";
   title: string;
   author: { handle: string; avatar: string; isWoman: boolean };
   description: string;
@@ -120,6 +123,7 @@ const SEED_POSTS: Post[] = [
 type Sort = "hot" | "new" | "top";
 
 const Community = () => {
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<Post[]>(SEED_POSTS);
   const [sort, setSort] = useState<Sort>("hot");
   const [filter, setFilter] = useState<string | null>(null);
@@ -127,6 +131,46 @@ const Community = () => {
   const [forked, setForked] = useState<Record<string, boolean>>({});
   const awardPoints = useProject((s) => s.awardPoints);
   const awardBadge = useProject((s) => s.awardBadge);
+  const setOnboarded = useProject((s) => s.setOnboarded);
+  const setProjectId = useProject((s) => s.setProjectId);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadDbProjects() {
+      try {
+        const response = await listEngineerProjects();
+        if (!mounted) return;
+        const dbPosts: Post[] = (response.projects || []).map((p, idx) => ({
+          id: `db-${p.projectId}`,
+          projectId: p.projectId,
+          source: "straightup",
+          title: p.title || p.projectId,
+          author: { handle: "@straightup.projects", avatar: "DB", isWoman: false },
+          description:
+            "Imported from straightup.projects. Fork to open this project directly in Build with its system architecture and database schema context.",
+          tags: ["straightup", "db-import"],
+          upvotes: 80 + idx * 3,
+          comments: 6 + (idx % 7),
+          forks: 3 + (idx % 9),
+          stars: 12 + (idx % 20),
+          views: 220 + idx * 9,
+          ago: "db",
+          diagram: `[project] ${p.projectId}\n[build] system architecture + database schema`,
+        }));
+        setPosts((prev) => {
+          const existingIds = new Set(prev.map((x) => x.id));
+          const fresh = dbPosts.filter((x) => !existingIds.has(x.id));
+          return [...prev, ...fresh];
+        });
+      } catch {
+        // keep community mock feed usable if backend list fails
+      }
+    }
+    void loadDbProjects();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const upvote = (id: string) => {
     if (voted[id]) return;
@@ -139,9 +183,17 @@ const Community = () => {
 
   const fork = (id: string) => {
     if (forked[id]) return;
+    const post = posts.find((p) => p.id === id);
     setForked((v) => ({ ...v, [id]: true }));
     setPosts((ps) => ps.map((p) => (p.id === id ? { ...p, forks: p.forks + 1 } : p)));
     awardPoints(15);
+    if (post?.projectId) {
+      setOnboarded(true);
+      setProjectId(post.projectId);
+      toast("+15 pts · forked into your studio");
+      navigate(`/workspace?tab=learn&projectId=${encodeURIComponent(post.projectId)}`);
+      return;
+    }
     toast("+15 pts · forked into your studio");
   };
 
