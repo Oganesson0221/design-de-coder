@@ -4,7 +4,7 @@ import { useProject } from "@/stores/project";
 import { Button } from "@/components/ui/button";
 import { Check, Award, Loader2, ArrowRight, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
-//import { BiasDetector } from "./bias-detector";
+import { BiasDetector } from "./bias-detector";
 import EngineerWorkbench from "@/components/workspace/EngineerWorkbench";
 import { PMDiagramBuilder } from "./PMDiagramBuilder";
 import { MentorChat } from "./MentorChat";
@@ -468,9 +468,9 @@ const RoleLearning = () => {
         )}
 
         {/* Ethicist: BiasDetector */}
-        {/*role === "ethicist" && (
+        {role === "ethicist" && (
           <BiasDetector projectId="proj_1776564436422_3ko44" />
-        )*/}
+        )}
       </div>
     </div>
   );
