@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, Link, useSearchParams } from "react-router-dom";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useProject } from "@/stores/project";
 import { WorkspaceCanvas } from "@/components/workspace/WorkspaceCanvas";
 import { ComponentBrowser } from "@/components/workspace/ComponentBrowser";
@@ -11,7 +12,7 @@ import RoleLearning from "@/components/workspace/RoleLearning";
 import Deconstruct from "@/components/workspace/Deconstruct";
 import {
   MessageCircle, LayoutGrid, BookOpen, Settings2,
-  ArrowLeft, Loader2, RefreshCw,
+  ArrowLeft, Loader2, RefreshCw, Pencil, Check, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -37,6 +38,7 @@ const Workspace = () => {
   const requirementsDoc    = useProject((s) => s.requirementsDoc);
   const setRequirementsDoc = useProject((s) => s.setRequirementsDoc);
   const projectId          = useProject((s) => s.projectId);
+  const setProjectId       = useProject((s) => s.setProjectId);
   const setComponents      = useProject((s) => s.setComponents);
   const setConnections     = useProject((s) => s.setConnections);
 
@@ -49,11 +51,56 @@ const Workspace = () => {
   const [specDraft, setSpecDraft]   = useState(requirementsDoc);
   const [specEdited, setSpecEdited] = useState(false);
   const [regenLoading, setRegenLoading] = useState(false);
+  const [projectTitle, setProjectTitle] = useState("");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [titleBusy, setTitleBusy] = useState(false);
+
+  const projectIdFromUrl = (searchParams.get("projectId") || "").trim();
+  const activeProjectId = projectId || projectIdFromUrl;
+
+  useEffect(() => {
+    if (projectIdFromUrl && projectIdFromUrl !== projectId) {
+      setProjectId(projectIdFromUrl);
+    }
+  }, [projectIdFromUrl, projectId, setProjectId]);
 
   useEffect(() => {
     setSpecDraft(requirementsDoc);
     setSpecEdited(false);
   }, [requirementsDoc]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadProjectTitle() {
+      if (!activeProjectId) {
+        if (mounted) {
+          const fallback = idea || "Untitled Project";
+          setProjectTitle(fallback);
+          setTitleDraft(fallback);
+        }
+        return;
+      }
+      try {
+        const res = await fetch(`/api/projects/by-project-id/${encodeURIComponent(activeProjectId)}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json() as { title?: string };
+        if (!mounted) return;
+        const next = (data.title || "").trim() || idea || "Untitled Project";
+        setProjectTitle(next);
+        setTitleDraft(next);
+      } catch {
+        if (!mounted) return;
+        const fallback = idea || "Untitled Project";
+        setProjectTitle(fallback);
+        setTitleDraft(fallback);
+      }
+    }
+    void loadProjectTitle();
+    return () => {
+      mounted = false;
+    };
+  }, [activeProjectId, idea]);
 
   useEffect(() => {
     if (tab === "workspace") searchParams.delete("tab");
@@ -71,10 +118,10 @@ const Workspace = () => {
   };
 
   const regenDiagram = async () => {
-    if (!projectId) { toast("No project loaded."); return; }
+    if (!activeProjectId) { toast("No project loaded."); return; }
     setRegenLoading(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/regenerate`, {
+      const res = await fetch(`/api/projects/${activeProjectId}/regenerate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ requirementsDoc: specDraft }),
@@ -93,6 +140,35 @@ const Workspace = () => {
     }
   };
 
+  const saveProjectTitle = async () => {
+    const next = titleDraft.trim();
+    if (!next) return;
+    if (!activeProjectId) {
+      setProjectTitle(next);
+      setIsEditingTitle(false);
+      return;
+    }
+    setTitleBusy(true);
+    try {
+      const res = await fetch(`/api/projects/by-project-id/${encodeURIComponent(activeProjectId)}/title`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: next }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json() as { title?: string };
+      const saved = (data.title || next).trim();
+      setProjectTitle(saved);
+      setTitleDraft(saved);
+      setIsEditingTitle(false);
+      toast("Project name updated.");
+    } catch {
+      toast("Could not save project name.");
+    } finally {
+      setTitleBusy(false);
+    }
+  };
+
   return (
     <div className="flex h-screen flex-col bg-paper">
       {/* ── Top bar ── */}
@@ -102,9 +178,63 @@ const Workspace = () => {
           <div className="hidden h-6 w-px bg-foreground/20 md:block" />
           <div className="hidden min-w-0 flex-1 md:block">
             <div className="label-caps text-[9px]">Manuscript</div>
-            <div className="truncate font-display text-sm italic">
-              "{idea || "Untitled idea"}"
-            </div>
+            {!isEditingTitle ? (
+              <div className="flex items-center gap-2">
+                <div className="truncate font-display text-sm italic">
+                  "{projectTitle || idea || "Untitled Project"}"
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => {
+                    setTitleDraft(projectTitle || idea || "Untitled Project");
+                    setIsEditingTitle(true);
+                  }}
+                  aria-label="Edit project title"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={titleDraft}
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  className="h-8 w-[280px] text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void saveProjectTitle();
+                    if (e.key === "Escape") {
+                      setTitleDraft(projectTitle || idea || "Untitled Project");
+                      setIsEditingTitle(false);
+                    }
+                  }}
+                  autoFocus
+                  aria-label="Project title"
+                />
+                <Button
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => void saveProjectTitle()}
+                  disabled={titleBusy || !titleDraft.trim()}
+                  aria-label="Save project title"
+                >
+                  {titleBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => {
+                    setTitleDraft(projectTitle || idea || "Untitled Project");
+                    setIsEditingTitle(false);
+                  }}
+                  aria-label="Cancel project title edit"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
           </div>
           <Button asChild variant="ghost" size="sm" className="ml-auto">
             <Link to="/"><ArrowLeft className="h-4 w-4" /> Home</Link>

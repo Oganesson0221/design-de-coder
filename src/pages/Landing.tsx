@@ -157,7 +157,9 @@ const Landing = () => {
                   ) : (
                     projects.map((p) => (
                       <option key={p.projectId} value={p.projectId}>
-                        {p.title} ({p.projectId})
+                        {p.title?.trim()
+                          ? p.title
+                          : p.projectId}
                       </option>
                     ))
                   )}
@@ -170,7 +172,7 @@ const Landing = () => {
                   onClick={openExistingProject}
                   disabled={!projectIdInput.trim() || projects.length === 0}
                 >
-                  Open by Project ID
+                  Open Project
                 </Button>
               </div>
             </motion.div>

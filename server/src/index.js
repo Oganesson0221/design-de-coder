@@ -1298,45 +1298,84 @@ app.post("/api/engineer/mentor", async (req, res) => {
 
 app.get("/api/engineer/projects", async (_req, res) => {
     try {
-      const projectDocs = await projects
-        .find(
-          {},
-          {
-            projection: {
-              _id: 1,
-              projectId: 1,
-              projectID: 1,
-              id: 1,
-              project_id: 1,
-              title: 1,
-              name: 1,
-              projectName: 1,
-              updatedAt: 1,
-              requirementDoc: 1,
-              requirementDocs: 1,
-              requirementsDoc: 1,
+      const [projectDocs, sessionDocs] = await Promise.all([
+        projects
+          .find(
+            {},
+            {
+              projection: {
+                _id: 1,
+                projectId: 1,
+                projectID: 1,
+                id: 1,
+                project_id: 1,
+                title: 1,
+                name: 1,
+                projectName: 1,
+                updatedAt: 1,
+                requirementDoc: 1,
+                requirementDocs: 1,
+                requirementsDoc: 1,
+              },
             },
-          },
-        )
-        .limit(500)
-        .toArray();
-  
-      const projectsList = projectDocs
-        .map((d) => {
-          const pid = normalizeProjectId(
-            d.projectId || d.projectID || d.id || d.project_id || d._id,
-          );
-          if (!pid) return null;
-          return {
+          )
+          .limit(1000)
+          .toArray(),
+        sessions
+          .find(
+            {},
+            {
+              projection: {
+                _id: 0,
+                projectId: 1,
+                projectTitle: 1,
+                updatedAt: 1,
+                requirementsMarkdown: 1,
+              },
+            },
+          )
+          .limit(1000)
+          .toArray(),
+      ]);
+
+      const map = new Map();
+
+      for (const d of projectDocs) {
+        const pid = normalizeProjectId(
+          d.projectId || d.projectID || d.id || d.project_id || d._id,
+        );
+        if (!pid) continue;
+        map.set(pid, {
+          projectId: pid,
+          title: String(d.title || d.name || d.projectName || "").trim(),
+          source: "projects",
+          updatedAt: d.updatedAt || "",
+          hasRequirements: Boolean(extractRequirementsFromProjectDoc(d)),
+        });
+      }
+
+      for (const s of sessionDocs) {
+        const pid = normalizeProjectId(s.projectId);
+        if (!pid) continue;
+        const existing = map.get(pid);
+        if (!existing) {
+          map.set(pid, {
             projectId: pid,
-            title: String(d.title || d.name || d.projectName || pid).trim() || pid,
-            source: "projects",
-            updatedAt: d.updatedAt || "",
-            hasRequirements: Boolean(extractRequirementsFromProjectDoc(d)),
-          };
-        })
-        .filter(Boolean)
-        .sort((a, b) =>
+            title: String(s.projectTitle || "").trim(),
+            source: "session",
+            updatedAt: s.updatedAt || "",
+            hasRequirements: Boolean(String(s.requirementsMarkdown || "").trim()),
+          });
+          continue;
+        }
+        existing.source = existing.source === "projects" ? "projects+session" : existing.source;
+        if (!existing.updatedAt && s.updatedAt) existing.updatedAt = s.updatedAt;
+        if (!existing.title && s.projectTitle) existing.title = String(s.projectTitle).trim();
+        existing.hasRequirements =
+          Boolean(existing.hasRequirements) || Boolean(String(s.requirementsMarkdown || "").trim());
+      }
+
+      const projectsList = Array.from(map.values()).sort((a, b) =>
         String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")),
       );
       return res.json({ projects: projectsList, db: "straightup", collection: "projects" });
@@ -2084,6 +2123,155 @@ app.get("/api/projects/:id", async (req, res) => {
     return res.json(project);
   } catch {
     return res.status(500).json({ error: "Failed to fetch project" });
+  }
+});
+
+// GET /api/projects/list-all — list every document in straightup.projects
+app.get("/api/projects/list-all", async (_req, res) => {
+  try {
+    const docs = await projectsCollection
+      .find(
+        {},
+        {
+          projection: {
+            _id: 1,
+            projectId: 1,
+            projectID: 1,
+            id: 1,
+            project_id: 1,
+            title: 1,
+            name: 1,
+            projectName: 1,
+            updatedAt: 1,
+          },
+        },
+      )
+      .limit(5000)
+      .toArray();
+
+    const projects = docs
+      .map((d) => {
+        const pid = normalizeProjectId(
+          d.projectId || d.projectID || d.id || d.project_id || d._id,
+        );
+        if (!pid) return null;
+        const title = String(d.title || d.name || d.projectName || "").trim();
+        return {
+          projectId: pid,
+          title: title || pid,
+          source: "projects",
+          updatedAt: d.updatedAt || "",
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+
+    return res.json({
+      projects,
+      total: projects.length,
+      db: "straightup",
+      collection: "projects",
+    });
+  } catch (err) {
+    console.error("GET /api/projects/list-all error:", err);
+    return res.status(500).json({ error: "Failed to list all projects" });
+  }
+});
+
+// GET /api/projects/by-project-id/:projectId
+app.get("/api/projects/by-project-id/:projectId", async (req, res) => {
+  try {
+    const projectId = normalizeProjectId(req.params.projectId);
+    if (!projectId) return res.status(400).json({ error: "projectId is required" });
+
+    const project = await findProjectDocByProjectId(projectId);
+    if (!project) return res.status(404).json({ error: "Project not found" });
+
+    const resolvedId = normalizeProjectId(
+      project.projectId || project.projectID || project.id || project.project_id || project._id,
+    );
+    const title = extractProjectTitle(project, resolvedId || projectId);
+
+    return res.json({
+      projectId: resolvedId || projectId,
+      title,
+    });
+  } catch (err) {
+    console.error("GET /api/projects/by-project-id/:projectId error:", err);
+    return res.status(500).json({ error: "Failed to fetch project title" });
+  }
+});
+
+// PUT /api/projects/by-project-id/:projectId/title
+app.put("/api/projects/by-project-id/:projectId/title", async (req, res) => {
+  try {
+    const projectId = normalizeProjectId(req.params.projectId);
+    const title = String(req.body?.title || "").trim();
+    if (!projectId) return res.status(400).json({ error: "projectId is required" });
+    if (!title) return res.status(400).json({ error: "title is required" });
+
+    const { ObjectId } = await import("mongodb");
+    const or = [
+      { projectId },
+      { projectID: projectId },
+      { id: projectId },
+      { project_id: projectId },
+      { _id: projectId },
+    ];
+    if (ObjectId.isValid(projectId)) {
+      try {
+        or.push({ _id: new ObjectId(projectId) });
+      } catch {
+        // ignore invalid cast edge case
+      }
+    }
+
+    const result = await projectsCollection.findOneAndUpdate(
+      { $or: or },
+      {
+        $set: {
+          title,
+          projectName: title,
+          updatedAt: nowIso(),
+        },
+      },
+      { returnDocument: "after" },
+    );
+
+    let next = null;
+    if (result && typeof result === "object" && "value" in result) {
+      next = result.value || null;
+    } else {
+      next = result || null;
+    }
+    if (!next) {
+      const inserted = {
+        projectId,
+        title,
+        projectName: title,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      };
+      const ins = await projectsCollection.insertOne(inserted);
+      return res.json({
+        projectId,
+        title,
+        updatedAt: inserted.updatedAt,
+        insertedId: ins.insertedId?.toString?.() || "",
+      });
+    }
+
+    const resolvedId = normalizeProjectId(
+      next.projectId || next.projectID || next.id || next.project_id || next._id,
+    );
+    return res.json({
+      projectId: resolvedId || projectId,
+      title: extractProjectTitle(next, title),
+      updatedAt: next.updatedAt || nowIso(),
+    });
+  } catch (err) {
+    console.error("PUT /api/projects/by-project-id/:projectId/title error:", err);
+    return res.status(500).json({ error: "Failed to update project title" });
   }
 });
 

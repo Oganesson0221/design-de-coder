@@ -144,7 +144,7 @@ const Community = () => {
           id: `db-${p.projectId}`,
           projectId: p.projectId,
           source: "straightup",
-          title: p.title || p.projectId,
+          title: p.title?.trim() || p.projectId,
           author: { handle: "@straightup.projects", avatar: "DB", isWoman: false },
           description:
             "Imported from straightup.projects. Fork to open this project directly in Build with its system architecture and database schema context.",
@@ -155,7 +155,7 @@ const Community = () => {
           stars: 12 + (idx % 20),
           views: 220 + idx * 9,
           ago: "db",
-          diagram: `[project] ${p.projectId}\n[build] system architecture + database schema`,
+          diagram: `[project] ${p.title?.trim() || p.projectId}\n[build] system architecture + database schema`,
         }));
         setPosts((prev) => {
           const existingIds = new Set(prev.map((x) => x.id));

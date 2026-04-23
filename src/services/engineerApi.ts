@@ -143,6 +143,10 @@ export async function applySchemaAgentChange({
 }
 
 export async function listEngineerProjects() {
-  const response = await fetch("/api/engineer/projects");
-  return asJson<{ projects: EngineerProjectSummary[] }>(response);
+  const primary = await fetch("/api/projects/list-all");
+  if (primary.ok) {
+    return asJson<{ projects: EngineerProjectSummary[] }>(primary);
+  }
+  const fallback = await fetch("/api/engineer/projects");
+  return asJson<{ projects: EngineerProjectSummary[] }>(fallback);
 }
