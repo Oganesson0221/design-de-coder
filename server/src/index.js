@@ -1948,6 +1948,7 @@ async function start() {
   await mongo.connect();
   db = mongo.db("straightup");
   sessions = db.collection("engineer_sessions");
+  projects = db.collection("projects");
   projectsCollection = db.collection("projects");
   schemasCollection = db.collection("schemas");
   requirementsCollection = db.collection("requirements");

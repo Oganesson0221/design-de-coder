@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProject } from "@/stores/project";
 import { Button } from "@/components/ui/button";
@@ -35,10 +35,23 @@ interface AnswerEval {
 
 type PMStage = "loading" | "questions" | "diagram";
 
+function toProjectId(idea: string, audience: string, flow: string) {
+  const raw = `${idea}|${audience}|${flow}`.trim() || "workspace";
+  return `project_${raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .slice(0, 60)}`;
+}
+
 const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PMStage) => void; initialStage?: PMStage }) => {
-  const idea = useProject((s) => s.answers.idea);
-  const projectId = useProject((s) => s.projectId);
+  const answers = useProject((s) => s.answers);
+  const storeProjectId = useProject((s) => s.projectId);
   const awardPoints = useProject((s) => s.awardPoints);
+
+  const projectId = useMemo(
+    () => storeProjectId || toProjectId(answers.idea, answers.audience, answers.flow),
+    [storeProjectId, answers.idea, answers.audience, answers.flow]
+  );
 
   const [stage, setStage] = useState<PMStage>(initialStage ?? "loading");
   const [questions, setQuestions] = useState<PMQuestion[]>([]);
@@ -128,7 +141,12 @@ const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PM
   if (stage === "loading") {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        {loadError && (
+        {!projectId && (
+          <p className="mb-4 font-display text-sm italic text-destructive">
+            No project loaded. Please complete onboarding first.
+          </p>
+        )}
+        {loadError && projectId && (
           <p className="mb-4 font-display text-sm italic text-destructive">
             Could not load questions — check the backend is running.
           </p>
@@ -138,11 +156,11 @@ const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PM
           Answer three questions about your product
         </h3>
         <p className="mb-8 max-w-md font-display text-sm italic text-muted-foreground">
-          The AI will generate questions specific to "{idea || "your idea"}" and evaluate your thinking.
+          The AI will generate questions specific to "{answers.idea || "your idea"}" and evaluate your thinking.
           Then you'll build an event flow diagram.
         </p>
-        <Button onClick={() => void loadQuestions()} variant="hero">
-          <Loader2 className={`h-4 w-4 ${loadError ? "hidden" : ""}`} />
+        <Button onClick={() => void loadQuestions()} variant="hero" disabled={!projectId}>
+          <Loader2 className={`h-4 w-4 ${loadError || !projectId ? "hidden" : ""}`} />
           Start PM exercises <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
@@ -320,15 +338,17 @@ const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PM
 // ─── Main RoleLearning component ──────────────────────────────────────────────
 
 const RoleLearning = () => {
-  const idea = useProject((s) => s.answers.idea);
-  const projectId = useProject((s) => s.projectId);
+  const answers = useProject((s) => s.answers);
+  const storeProjectId = useProject((s) => s.projectId);
   const [role, setRole] = useState<Role>("pm");
   const [points, setPoints] = useState(0);
-  const [answered, setAnswered] = useState<Record<string, number>>({});
   // Track PM stage so we can switch outer layout
   const [pmStage, setPmStage] = useState<PMStage>("loading");
 
-  const activeRole = ROLES.find((r) => r.id === role)!;
+  const projectId = useMemo(
+    () => storeProjectId || toProjectId(answers.idea, answers.audience, answers.flow),
+    [storeProjectId, answers.idea, answers.audience, answers.flow]
+  );
 
   // ─── Engineer role: Full-height EngineerWorkbench ───
   if (role === "engineer") {
@@ -469,15 +489,8 @@ const RoleLearning = () => {
         )}
 
         {/* Ethicist: BiasDetector */}
-        {role === "ethicist" && projectId && (
+        {role === "ethicist" && (
           <BiasDetector projectId={projectId} />
-        )}
-        {role === "ethicist" && !projectId && (
-          <div className="border border-foreground/20 bg-card p-6 text-center">
-            <p className="font-display text-muted-foreground">
-              No project loaded.
-            </p>
-          </div>
         )}
       </div>
     </div>
