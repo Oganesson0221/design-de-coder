@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8787";
+const API_BASE = "http://localhost:3001";
 
 export interface BiasProjectData {
   projectId: string;

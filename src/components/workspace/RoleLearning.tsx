@@ -321,6 +321,7 @@ const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PM
 
 const RoleLearning = () => {
   const idea = useProject((s) => s.answers.idea);
+  const projectId = useProject((s) => s.projectId);
   const [role, setRole] = useState<Role>("pm");
   const [points, setPoints] = useState(0);
   const [answered, setAnswered] = useState<Record<string, number>>({});
@@ -468,8 +469,15 @@ const RoleLearning = () => {
         )}
 
         {/* Ethicist: BiasDetector */}
-        {role === "ethicist" && (
-          <BiasDetector projectId="proj_1776564436422_3ko44" />
+        {role === "ethicist" && projectId && (
+          <BiasDetector projectId={projectId} />
+        )}
+        {role === "ethicist" && !projectId && (
+          <div className="border border-foreground/20 bg-card p-6 text-center">
+            <p className="font-display text-muted-foreground">
+              No project loaded.
+            </p>
+          </div>
         )}
       </div>
     </div>

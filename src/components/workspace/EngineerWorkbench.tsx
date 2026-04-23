@@ -649,6 +649,7 @@ export default function EngineerWorkbench() {
   const [searchParams] = useSearchParams();
   const answers = useProject((s) => s.answers);
   const components = useProject((s) => s.components);
+  const storeProjectId = useProject((s) => s.projectId);
 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -697,10 +698,10 @@ export default function EngineerWorkbench() {
 
   useEffect(() => {
     if (!activeProjectId) {
-      const initial = projectIdFromUrl || defaultProjectId;
+      const initial = storeProjectId || projectIdFromUrl || defaultProjectId;
       setActiveProjectId(initial);
     }
-  }, [defaultProjectId, activeProjectId, projectIdFromUrl]);
+  }, [defaultProjectId, activeProjectId, projectIdFromUrl, storeProjectId]);
 
   const hydrateFromSession = (data: {
     dbSchema: DbSchemaData;
