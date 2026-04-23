@@ -1,11 +1,46 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles, Github, Cpu, Database, ShieldCheck, Users } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
+import { useProject } from "@/stores/project";
+import { listEngineerProjects, type EngineerProjectSummary } from "@/services/engineerApi";
 
 const Landing = () => {
+  const navigate = useNavigate();
+  const setOnboarded = useProject((s) => s.setOnboarded);
+  const [projectIdInput, setProjectIdInput] = useState("");
+  const [projects, setProjects] = useState<EngineerProjectSummary[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function loadProjects() {
+      try {
+        const response = await listEngineerProjects();
+        if (!mounted) return;
+        setProjects(response.projects || []);
+        if ((response.projects || []).length > 0) {
+          setProjectIdInput(response.projects[0].projectId);
+        }
+      } catch {
+        // noop
+      }
+    }
+    void loadProjects();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const openExistingProject = () => {
+    const next = projectIdInput.trim();
+    if (!next) return;
+    setOnboarded(true);
+    navigate(`/workspace?tab=learn&projectId=${encodeURIComponent(next)}`);
+  };
+
   return (
     <div className="min-h-screen bg-paper">
       <SiteHeader />
@@ -101,6 +136,43 @@ const Landing = () => {
               >
                 <Github className="h-3.5 w-3.5" /> how it works ↓
               </a>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.28 }}
+              className="mt-4 max-w-2xl rounded-lg border border-foreground/20 bg-card p-3"
+            >
+              <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+                Open Existing Project
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <select
+                  value={projectIdInput}
+                  onChange={(e) => setProjectIdInput(e.target.value)}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs"
+                >
+                  {projects.length === 0 ? (
+                    <option value="">No projects found</option>
+                  ) : (
+                    projects.map((p) => (
+                      <option key={p.projectId} value={p.projectId}>
+                        {p.title} ({p.projectId})
+                      </option>
+                    ))
+                  )}
+                </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  className="sm:w-auto"
+                  onClick={openExistingProject}
+                  disabled={!projectIdInput.trim() || projects.length === 0}
+                >
+                  Open by Project ID
+                </Button>
+              </div>
             </motion.div>
 
             {/* Stat strip */}
