@@ -1,22 +1,24 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Logo } from "./Logo";
 import { Button } from "./ui/button";
 import { NavLink } from "./NavLink";
 import { Link } from "react-router-dom";
 import { useProject } from "@/stores/project";
-import { listEngineerProjects, type EngineerProjectSummary } from "@/services/engineerApi";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
+  listEngineerProjects,
+  type EngineerProjectSummary,
+} from "@/services/engineerApi";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 
 const WORKSPACE_LINKS = [
   { to: "/workspace", tab: "", label: "Build" },
   { to: "/workspace?tab=learn", tab: "learn", label: "Roleplay" },
-  { to: "/workspace?tab=deconstruct", tab: "deconstruct", label: "Reverse-eng" },
+  {
+    to: "/workspace?tab=deconstruct",
+    tab: "deconstruct",
+    label: "Reverse-eng",
+  },
 ];
 
 const COMMUNITY_LINKS = [
@@ -25,8 +27,10 @@ const COMMUNITY_LINKS = [
 ];
 
 export const SiteHeader = () => {
+  const location = useLocation();
   const navigate = useNavigate();
   const projectId = useProject((s) => s.projectId);
+  const points = useProject((s) => s.points);
   const setProjectId = useProject((s) => s.setProjectId);
   const setOnboarded = useProject((s) => s.setOnboarded);
 
@@ -43,7 +47,10 @@ export const SiteHeader = () => {
         .then((res) => {
           setProjects(res.projects || []);
           // Pre-select current project if exists, otherwise first project
-          if (projectId && (res.projects || []).some(p => p.projectId === projectId)) {
+          if (
+            projectId &&
+            (res.projects || []).some((p) => p.projectId === projectId)
+          ) {
             setSelectedProject(projectId);
           } else if ((res.projects || []).length > 0) {
             setSelectedProject(res.projects[0].projectId);
@@ -53,13 +60,16 @@ export const SiteHeader = () => {
         .finally(() => setLoading(false));
     } else if (showProjectPicker && projects.length > 0) {
       // Re-select current project when dialog opens
-      if (projectId && projects.some(p => p.projectId === projectId)) {
+      if (projectId && projects.some((p) => p.projectId === projectId)) {
         setSelectedProject(projectId);
       }
     }
   }, [showProjectPicker, projects.length, projectId]);
 
-  const handleWorkspaceClick = (e: React.MouseEvent, link: typeof WORKSPACE_LINKS[0]) => {
+  const handleWorkspaceClick = (
+    e: React.MouseEvent,
+    link: (typeof WORKSPACE_LINKS)[0],
+  ) => {
     // Always show project picker for workspace links
     e.preventDefault();
     setPendingNav(link.to);
@@ -78,6 +88,8 @@ export const SiteHeader = () => {
     setPendingNav(null);
   };
 
+  const isLandingPage = location.pathname === "/";
+
   return (
     <>
       <header className="sticky top-0 z-40 border-b-2 border-foreground bg-background/90 backdrop-blur">
@@ -85,6 +97,16 @@ export const SiteHeader = () => {
           <div className="flex items-center justify-between gap-4">
             <Logo />
             <div className="flex items-center gap-2">
+              {isLandingPage && (
+                <div className="flex min-w-[88px] flex-col rounded-md border border-foreground/20 bg-card px-3 py-1.5 text-left shadow-stamp-sm">
+                  <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+                    points
+                  </span>
+                  <span className="font-mono text-sm font-semibold text-foreground">
+                    {points + 20}
+                  </span>
+                </div>
+              )}
               <Button asChild variant="hero" size="sm">
                 <Link to="/onboarding">ship it →</Link>
               </Button>
@@ -137,7 +159,9 @@ export const SiteHeader = () => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading projects...</p>
+              <p className="text-sm text-muted-foreground">
+                Loading projects...
+              </p>
             ) : projects.length === 0 ? (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
