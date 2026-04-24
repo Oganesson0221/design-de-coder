@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProject } from "@/stores/project";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,14 @@ function toProjectId(idea: string, audience: string, flow: string) {
     .slice(0, 60)}`;
 }
 
+interface SavedAnswer {
+  question: string;
+  hint: string;
+  followUp: string;
+  answer: string;
+  eval: AnswerEval | null;
+}
+
 const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PMStage) => void; initialStage?: PMStage }) => {
   const answers = useProject((s) => s.answers);
   const storeProjectId = useProject((s) => s.projectId);
@@ -55,6 +63,7 @@ const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PM
 
   const [stage, setStage] = useState<PMStage>(initialStage ?? "loading");
   const [questions, setQuestions] = useState<PMQuestion[]>([]);
+  const [savedAnswers, setSavedAnswers] = useState<SavedAnswer[]>([]);
   const [currentQ, setCurrentQ] = useState(0);
   const [answer, setAnswer] = useState("");
   const [evalResult, setEvalResult] = useState<AnswerEval | null>(null);
@@ -67,6 +76,64 @@ const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PM
     setStage(s);
     onStageChange?.(s);
   };
+
+  // Persist Q&A state to DB
+  const persistAnswers = useCallback(async (qs: PMQuestion[], ans: SavedAnswer[]) => {
+    if (!projectId) return;
+    try {
+      await fetch(`/api/pm/progress/${encodeURIComponent(projectId)}/save-answer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questions: qs, answers: ans }),
+      });
+    } catch { /* noop */ }
+  }, [projectId]);
+
+  // Load saved progress on mount
+  useEffect(() => {
+    if (!projectId) return;
+    let mounted = true;
+    async function loadProgress() {
+      try {
+        const res = await fetch(`/api/pm/progress/${encodeURIComponent(projectId)}`);
+        if (!res.ok || !mounted) return;
+        const data = await res.json() as {
+          questions: PMQuestion[];
+          answers: SavedAnswer[];
+          diagramResult?: unknown;
+        };
+        if (!mounted) return;
+        if (Array.isArray(data.questions) && data.questions.length > 0) {
+          setQuestions(data.questions);
+          const ans = Array.isArray(data.answers) ? data.answers : [];
+          setSavedAnswers(ans);
+          // Figure out where to resume: find first unanswered question
+          const nextUnanswered = ans.findIndex((a) => !a.eval);
+          const resumeIdx = nextUnanswered === -1 ? ans.length : nextUnanswered;
+          if (resumeIdx >= data.questions.length) {
+            // All questions answered — go straight to diagram stage
+            const earnedPts = ans.reduce((sum, a) => sum + (a.eval?.pointsAwarded ?? 0), 0);
+            setTotalPoints(earnedPts);
+            changeStage("diagram");
+          } else {
+            setCurrentQ(resumeIdx);
+            // Restore state for a question that was answered but we're revisiting
+            if (ans[resumeIdx]?.eval) {
+              setAnswer(ans[resumeIdx].answer);
+              setEvalResult(ans[resumeIdx].eval);
+              setShowFollowUp(true);
+            }
+            const earnedPts = ans.slice(0, resumeIdx).reduce((sum, a) => sum + (a.eval?.pointsAwarded ?? 0), 0);
+            setTotalPoints(earnedPts);
+            changeStage("questions");
+          }
+        }
+      } catch { /* noop */ }
+    }
+    void loadProgress();
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   const loadQuestions = async () => {
     if (!projectId) {
@@ -86,11 +153,14 @@ const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PM
       const qs = Array.isArray(data.questions) ? data.questions : [];
       if (qs.length === 0) throw new Error("empty");
       setQuestions(qs);
+      setSavedAnswers([]);
       setCurrentQ(0);
       setAnswer("");
       setEvalResult(null);
       setShowFollowUp(false);
       changeStage("questions");
+      // Persist the freshly generated questions immediately
+      await persistAnswers(qs, []);
     } catch {
       setLoadError(true);
       changeStage("loading");
@@ -119,6 +189,17 @@ const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PM
         toast(`+${data.pointsAwarded} points · keep thinking!`);
       }
       setShowFollowUp(true);
+      // Persist this answer + its evaluation
+      const updatedAnswers: SavedAnswer[] = [...savedAnswers];
+      updatedAnswers[currentQ] = {
+        question: questions[currentQ].question,
+        hint: questions[currentQ].hint,
+        followUp: questions[currentQ].followUp,
+        answer,
+        eval: data,
+      };
+      setSavedAnswers(updatedAnswers);
+      await persistAnswers(questions, updatedAnswers);
     } catch {
       toast("Could not evaluate — check the backend is running.");
     } finally {
@@ -128,10 +209,18 @@ const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PM
 
   const nextQuestion = () => {
     if (currentQ < questions.length - 1) {
-      setCurrentQ((q) => q + 1);
-      setAnswer("");
-      setEvalResult(null);
-      setShowFollowUp(false);
+      const nextIdx = currentQ + 1;
+      setCurrentQ(nextIdx);
+      // Restore saved answer if already answered
+      if (savedAnswers[nextIdx]?.eval) {
+        setAnswer(savedAnswers[nextIdx].answer);
+        setEvalResult(savedAnswers[nextIdx].eval);
+        setShowFollowUp(true);
+      } else {
+        setAnswer("");
+        setEvalResult(null);
+        setShowFollowUp(false);
+      }
     } else {
       changeStage("diagram");
     }
@@ -337,39 +426,12 @@ const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PM
 
 // ─── Main RoleLearning component ──────────────────────────────────────────────
 
-const RoleTabs = ({ role, setRole }: { role: Role; setRole: (r: Role) => void }) => (
-  <div className="shrink-0 border-b border-foreground/15">
-    <div className="grid w-full grid-cols-3 gap-px border-y border-foreground/20 bg-foreground/20">
-      {ROLES.map((r) => {
-        const active = role === r.id;
-        return (
-          <button
-            key={r.id}
-            onClick={() => setRole(r.id)}
-            className={`group min-w-0 p-3 text-left transition-smooth ${
-              active ? "bg-foreground text-background" : "bg-card hover:bg-secondary"
-            }`}
-          >
-            <div className="flex items-baseline gap-2">
-              <span className={`font-display text-xl ${active ? "text-background/70" : "text-primary"}`}>{r.numeral}</span>
-              <div>
-                <div className="font-display text-base font-medium">{r.label}</div>
-                <div className={`mt-0.5 font-display text-xs italic ${active ? "text-background/80" : "text-muted-foreground"}`}>
-                  {r.tagline}
-                </div>
-              </div>
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  </div>
-);
-
 const RoleLearning = () => {
   const answers = useProject((s) => s.answers);
   const storeProjectId = useProject((s) => s.projectId);
   const [role, setRole] = useState<Role>("pm");
+  const [points, setPoints] = useState(0);
+  // Track PM stage so we can switch outer layout
   const [pmStage, setPmStage] = useState<PMStage>("loading");
 
   const projectId = useMemo(
@@ -377,36 +439,147 @@ const RoleLearning = () => {
     [storeProjectId, answers.idea, answers.audience, answers.flow]
   );
 
+  // ─── Engineer role: Full-height EngineerWorkbench ───
+  if (role === "engineer") {
+    return (
+      <div className="h-full flex flex-col bg-paper">
+        <div className="shrink-0 border-b border-foreground/15 px-0 py-0">
+          <div className="grid w-full grid-cols-3 gap-px border-y border-foreground/20 bg-foreground/20">
+            {ROLES.map((r) => {
+              const active = role === r.id;
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => setRole(r.id)}
+                  className={`group min-w-0 p-3 text-left transition-smooth ${
+                    active ? "bg-foreground text-background" : "bg-card hover:bg-secondary"
+                  }`}
+                >
+                  <div className="flex items-baseline gap-2">
+                    <span className={`font-display text-xl ${active ? "text-background/70" : "text-primary"}`}>{r.numeral}</span>
+                    <div>
+                      <div className="font-display text-base font-medium">{r.label}</div>
+                      <div className={`mt-0.5 font-display text-xs italic ${active ? "text-background/80" : "text-muted-foreground"}`}>
+                        {r.tagline}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 p-0">
+          <EngineerWorkbench />
+        </div>
+      </div>
+    );
+  }
+
+  // ─── PM role in diagram stage: Full-height layout ───
+  if (role === "pm" && pmStage === "diagram") {
+    return (
+      <div className="flex h-full flex-col bg-paper">
+        {/* Compact header + role tabs strip */}
+        <div className="shrink-0 border-b-2 border-foreground bg-background px-5 py-3">
+          <div className="flex items-center gap-4">
+            <div>
+              <div className="label-caps">Chapter Two · PM Diagram Practice</div>
+            </div>
+            <div className="ml-auto flex gap-1">
+              {ROLES.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => { setRole(r.id); setPmStage("loading"); }}
+                  className={`border px-3 py-1 font-mono text-[9px] uppercase tracking-[0.12em] transition-all ${
+                    role === r.id
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-foreground/20 text-muted-foreground hover:border-foreground"
+                  }`}
+                >
+                  {r.numeral} {r.label.split(" ")[1] ?? r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <PMSection onStageChange={setPmStage} initialStage="diagram" />
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Default scrollable layout (PM questions stage, Ethicist) ───
   return (
-    <div className="h-full w-full flex flex-col bg-paper">
-      {/* Role tabs - always full width at top */}
-      <RoleTabs role={role} setRole={setRole} />
-
-      {/* Content area */}
-      <div className="flex-1 min-h-0 overflow-hidden">
-        {/* Engineer */}
-        {role === "engineer" && <EngineerWorkbench />}
-
-        {/* PM */}
-        {role === "pm" && (
-          <div className="h-full overflow-y-auto">
-            {pmStage === "diagram" ? (
-              <PMSection onStageChange={setPmStage} initialStage="diagram" />
-            ) : (
-              <div className="container max-w-4xl py-10 px-6">
-                <PMSection onStageChange={setPmStage} />
+    <div className="h-full overflow-y-auto bg-paper">
+      <div className="container max-w-5xl py-10">
+        {/* Header */}
+        <div className="mb-10 border-b-2 border-foreground pb-6">
+          <div className="flex items-baseline justify-between">
+            <div>
+              <div className="label-caps mb-2">Chapter Two</div>
+              <h1 className="font-display text-4xl font-medium leading-none md:text-5xl">
+                Three Lenses on a Single Design
+              </h1>
+              <p className="mt-3 max-w-2xl font-display text-lg italic text-muted-foreground">
+                The same architecture, examined by three professionals who would rarely sit in the same meeting.
+              </p>
+            </div>
+            {role !== "pm" && points > 0 && (
+              <div className="hidden border border-foreground/30 px-5 py-3 text-center md:block">
+                <div className="label-caps">Marks earned</div>
+                <div className="font-display text-3xl font-medium text-primary">{points}</div>
               </div>
             )}
           </div>
+        </div>
+
+        {/* Role tabs */}
+        <div className="mb-10 grid gap-px border border-foreground/20 bg-foreground/20 md:grid-cols-3">
+          {ROLES.map((r) => {
+            const active = role === r.id;
+            return (
+              <button
+                key={r.id}
+                onClick={() => setRole(r.id)}
+                className={`group p-5 text-left transition-smooth ${
+                  active ? "bg-foreground text-background" : "bg-card hover:bg-secondary"
+                }`}
+              >
+                <div className="flex items-baseline gap-3">
+                  <span className={`font-display text-2xl ${active ? "text-background/70" : "text-primary"}`}>{r.numeral}</span>
+                  <div>
+                    <div className="font-display text-lg font-medium">{r.label}</div>
+                    <div className={`mt-0.5 font-display text-sm italic ${active ? "text-background/80" : "text-muted-foreground"}`}>
+                      {r.tagline}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* PM: two-stage interactive flow */}
+        {role === "pm" && (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key="pm"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+              className="min-h-[500px]"
+            >
+              <PMSection onStageChange={setPmStage} />
+            </motion.div>
+          </AnimatePresence>
         )}
 
-        {/* Ethicist */}
+        {/* Ethicist: BiasDetector */}
         {role === "ethicist" && (
-          <div className="h-full overflow-y-auto">
-            <div className="container max-w-4xl py-10 px-6">
-              <BiasDetector projectId={projectId} />
-            </div>
-          </div>
+          <BiasDetector projectId={projectId} />
         )}
       </div>
     </div>

@@ -12,6 +12,9 @@ const DRAWIO_EMBED =
 export const WorkspaceCanvas = () => {
   const components   = useProject((s) => s.components);
   const connections  = useProject((s) => s.connections);
+  const diagramXml   = useProject((s) => s.diagramXml);
+  const setDiagramXml = useProject((s) => s.setDiagramXml);
+  const projectId    = useProject((s) => s.projectId);
   const addComponent = useProject((s) => s.addComponent);
 
   const iframeRef  = useRef<HTMLIFrameElement>(null);
@@ -21,14 +24,42 @@ export const WorkspaceCanvas = () => {
   const diagramSentRef = useRef(false);
   const techGroups = getTechsByKind();
 
+  // Auto-save: debounce timer ref
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const diagramXmlRef = useRef<string | null>(diagramXml);
+  useEffect(() => { diagramXmlRef.current = diagramXml; }, [diagramXml]);
+
   const sendDiagram = useCallback(() => {
     if (!iframeRef.current?.contentWindow) return;
-    const xml = buildDrawioXml(components, connections);
+    // If we have a saved XML, load it directly; otherwise build from components
+    const xml = diagramXmlRef.current || buildDrawioXml(components, connections);
     iframeRef.current.contentWindow.postMessage(
       JSON.stringify({ action: "load", xml }),
       "*"
     );
   }, [components, connections]);
+
+  // Request current XML from draw.io then persist to DB
+  const triggerSave = useCallback(() => {
+    if (!iframeRef.current?.contentWindow || !projectId) return;
+    iframeRef.current.contentWindow.postMessage(
+      JSON.stringify({ action: "export", format: "xml" }),
+      "*"
+    );
+  }, [projectId]);
+
+  const persistXml = useCallback(async (xml: string) => {
+    if (!projectId || !xml) return;
+    try {
+      await fetch(`/api/projects/${encodeURIComponent(projectId)}/diagram-xml`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ diagramXml: xml }),
+      });
+      setDiagramXml(xml);
+    } catch { /* noop */ }
+  }, [projectId, setDiagramXml]);
 
   useEffect(() => {
     const handler = (ev: MessageEvent) => {
@@ -40,6 +71,7 @@ export const WorkspaceCanvas = () => {
       } catch { return; }
 
       const event = msg.event as string | undefined;
+
       if (event === "init") {
         setIframeReady(true);
         if (components.length > 0 && !diagramSentRef.current) {
@@ -48,15 +80,39 @@ export const WorkspaceCanvas = () => {
         }
       }
       if (event === "load") setIframeReady(true);
+
+      // draw.io fires "change" on every edit — debounce and save
+      if (event === "change") {
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => {
+          triggerSave();
+        }, 3000);
+      }
+
+      // Catch export responses (used by our save trigger)
+      if (event === "export") {
+        const xml = (msg.xml as string) ?? (msg.data as string) ?? "";
+        if (xml) void persistXml(xml);
+      }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [components, sendDiagram]);
+  }, [components, sendDiagram, triggerSave, persistXml]);
 
   useEffect(() => {
     if (iframeReady && components.length > 0) sendDiagram();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [components, connections, iframeReady]);
+
+  // Save on tab close / navigate away
+  useEffect(() => {
+    const onUnload = () => triggerSave();
+    window.addEventListener("beforeunload", onUnload);
+    return () => {
+      window.removeEventListener("beforeunload", onUnload);
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [triggerSave]);
 
   const handleAddTech = (logoKey: string) => {
     const meta = getTechMeta(logoKey);

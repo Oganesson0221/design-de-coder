@@ -41,6 +41,8 @@ const Workspace = () => {
   const setProjectId       = useProject((s) => s.setProjectId);
   const setComponents      = useProject((s) => s.setComponents);
   const setConnections     = useProject((s) => s.setConnections);
+  const setDiagramXml     = useProject((s) => s.setDiagramXml);
+  const components         = useProject((s) => s.components);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get("tab") as Tab) || "workspace";
@@ -64,6 +66,46 @@ const Workspace = () => {
       setProjectId(projectIdFromUrl);
     }
   }, [projectIdFromUrl, projectId, setProjectId]);
+
+  // When arriving via project ID (e.g. from Landing), fetch and hydrate diagram data
+  useEffect(() => {
+    if (!activeProjectId) return;
+    if (components.length > 0) return; // already loaded
+    let mounted = true;
+    async function loadArchitecture() {
+      try {
+        const res = await fetch(`/api/projects/${encodeURIComponent(activeProjectId)}/architecture`);
+        if (!res.ok) return;
+        const data = await res.json() as {
+          components: unknown[];
+          connections: unknown[];
+          requirementsDoc?: string;
+          diagramXml?: string | null;
+        };
+        if (!mounted) return;
+        if (Array.isArray(data.components) && data.components.length > 0) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setComponents(data.components as any);
+        }
+        if (Array.isArray(data.connections)) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setConnections(data.connections as any);
+        }
+        if (data.requirementsDoc && !requirementsDoc) {
+          setRequirementsDoc(data.requirementsDoc);
+        }
+        // Saved XML takes priority — load it directly, bypassing buildDrawioXml
+        if (data.diagramXml) {
+          setDiagramXml(data.diagramXml);
+        }
+      } catch {
+        // noop — diagram will just be empty
+      }
+    }
+    void loadArchitecture();
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectId]);
 
   useEffect(() => {
     setSpecDraft(requirementsDoc);
@@ -132,6 +174,7 @@ const Workspace = () => {
       setComponents(data.components as any);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setConnections(data.connections as any);
+      setDiagramXml(null); // fresh regeneration — discard saved XML
       toast("Diagram regenerated.");
     } catch {
       toast("Could not regenerate — check backend.");

@@ -61,6 +61,7 @@ interface ProjectState {
   answers: OnboardingAnswers;
   components: ArchComponent[];
   connections: ArchConnection[];
+  diagramXml: string | null;
   constraints: AdvancedConstraints;
   points: number;
   badges: Badge[];
@@ -75,6 +76,7 @@ interface ProjectState {
   setRequirementsDoc: (doc: string) => void;
   setComponents: (c: ArchComponent[]) => void;
   setConnections: (c: ArchConnection[]) => void;
+  setDiagramXml: (xml: string | null) => void;
   setConstraints: (c: Partial<AdvancedConstraints>) => void;
   moveComponent: (id: string, x: number, y: number) => void;
   removeComponent: (id: string) => void;
@@ -100,6 +102,7 @@ export const useProject = create<ProjectState>((set) => ({
   answers: empty,
   components: [],
   connections: [],
+  diagramXml: null,
   constraints: defaultConstraints,
   points: 0,
   badges: [],
@@ -119,6 +122,7 @@ export const useProject = create<ProjectState>((set) => ({
   setRequirementsDoc: (doc) => set({ requirementsDoc: doc }),
   setComponents: (c) => set({ components: c }),
   setConnections: (c) => set({ connections: c }),
+  setDiagramXml: (xml) => set({ diagramXml: xml }),
   setConstraints: (c) => set((s) => ({ constraints: { ...s.constraints, ...c } })),
   moveComponent: (id, x, y) =>
     set((s) => ({ components: s.components.map((c) => (c.id === id ? { ...c, x, y } : c)) })),
@@ -133,6 +137,7 @@ export const useProject = create<ProjectState>((set) => ({
       answers: empty,
       components: [],
       connections: [],
+      diagramXml: null,
       constraints: defaultConstraints,
       points: 0,
       badges: [],

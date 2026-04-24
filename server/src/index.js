@@ -2094,6 +2094,7 @@ Rules:
       flow,
       requirementsDoc,
       components: arch.components,
+      connections: arch.connections,
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
@@ -2109,6 +2110,50 @@ Rules:
   } catch (err) {
     console.error("POST /api/projects error:", err);
     return res.status(500).json({ error: "Failed to generate architecture" });
+  }
+});
+
+// GET /api/projects/:id/architecture — return components + connections for a project
+app.get("/api/projects/:id/architecture", async (req, res) => {
+  try {
+    const projectId = normalizeProjectId(req.params.id);
+    if (!projectId) return res.status(400).json({ error: "id is required" });
+
+    const doc = await findProjectDocByProjectId(projectId);
+    if (!doc) return res.status(404).json({ error: "Project not found" });
+
+    return res.json({
+      projectId,
+      components: Array.isArray(doc.components) ? doc.components : [],
+      connections: Array.isArray(doc.connections) ? doc.connections : [],
+      requirementsDoc: doc.requirementsDoc || doc.requirementsMarkdown || "",
+      diagramXml: doc.diagramXml || null,
+    });
+  } catch (err) {
+    console.error("GET /api/projects/:id/architecture error:", err);
+    return res.status(500).json({ error: "Failed to fetch architecture" });
+  }
+});
+
+// PUT /api/projects/:id/diagram-xml — save the edited draw.io XML for the main workspace diagram
+app.put("/api/projects/:id/diagram-xml", async (req, res) => {
+  try {
+    const projectId = normalizeProjectId(req.params.id);
+    if (!projectId) return res.status(400).json({ error: "id is required" });
+    const { diagramXml } = req.body || {};
+    if (typeof diagramXml !== "string") return res.status(400).json({ error: "diagramXml must be a string" });
+
+    const doc = await findProjectDocByProjectId(projectId);
+    if (!doc) return res.status(404).json({ error: "Project not found" });
+
+    await projectsCollection.updateOne(
+      { _id: doc._id },
+      { $set: { diagramXml, updatedAt: nowIso() } }
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("PUT /api/projects/:id/diagram-xml error:", err);
+    return res.status(500).json({ error: "Failed to save diagram XML" });
   }
 });
 
@@ -2442,6 +2487,71 @@ Avoid jargon. Encourage the user to think, not just copy answers.`;
   }
 });
 
+// ==================== PM PROGRESS API ====================
+
+let pmProgressCollection;
+
+// GET /api/pm/progress/:projectId — load saved PM exercise state
+app.get("/api/pm/progress/:projectId", async (req, res) => {
+  try {
+    const projectId = normalizeProjectId(req.params.projectId);
+    if (!projectId) return res.status(400).json({ error: "projectId is required" });
+    const doc = await pmProgressCollection.findOne({ projectId });
+    if (!doc) return res.json({ projectId, questions: [], answers: [], diagramType: null, diagramXml: null, diagramResult: null });
+    return res.json({
+      projectId,
+      questions: doc.questions || [],
+      answers: doc.answers || [],
+      diagramType: doc.diagramType || null,
+      diagramExercise: doc.diagramExercise || null,
+      diagramXml: doc.diagramXml || null,
+      diagramResult: doc.diagramResult || null,
+    });
+  } catch (err) {
+    console.error("GET /api/pm/progress error:", err);
+    return res.status(500).json({ error: "Failed to load PM progress" });
+  }
+});
+
+// POST /api/pm/progress/:projectId/save-answer — save a Q&A + eval result
+app.post("/api/pm/progress/:projectId/save-answer", async (req, res) => {
+  try {
+    const projectId = normalizeProjectId(req.params.projectId);
+    if (!projectId) return res.status(400).json({ error: "projectId is required" });
+    const { questions, answers } = req.body || {};
+    await pmProgressCollection.updateOne(
+      { projectId },
+      { $set: { projectId, questions: questions || [], answers: answers || [], updatedAt: nowIso() }, $setOnInsert: { createdAt: nowIso() } },
+      { upsert: true }
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("POST /api/pm/progress/save-answer error:", err);
+    return res.status(500).json({ error: "Failed to save answer" });
+  }
+});
+
+// POST /api/pm/progress/:projectId/save-diagram-xml — auto-save in-progress draw.io XML
+app.post("/api/pm/progress/:projectId/save-diagram-xml", async (req, res) => {
+  try {
+    const projectId = normalizeProjectId(req.params.projectId);
+    if (!projectId) return res.status(400).json({ error: "projectId is required" });
+    const { diagramXml, diagramType, diagramExercise } = req.body || {};
+    const patch = { diagramXml: diagramXml || null, updatedAt: nowIso() };
+    if (diagramType) patch.diagramType = diagramType;
+    if (diagramExercise) patch.diagramExercise = diagramExercise;
+    await pmProgressCollection.updateOne(
+      { projectId },
+      { $set: { projectId, ...patch }, $setOnInsert: { createdAt: nowIso() } },
+      { upsert: true }
+    );
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("POST /api/pm/progress/save-diagram-xml error:", err);
+    return res.status(500).json({ error: "Failed to save diagram XML" });
+  }
+});
+
 // ==================== PM EVALUATION API ====================
 
 // POST /api/pm/questions — generate PM thinking questions
@@ -2716,6 +2826,24 @@ ${diagramText}`,
       result = { passed: false, score: 0, feedback: "Could not evaluate", hints: [], pointsAwarded: 0 };
     }
 
+    // Persist the eval result and clear the in-progress XML
+    const projectIdNorm = normalizeProjectId(projectId);
+    if (projectIdNorm) {
+      await pmProgressCollection.updateOne(
+        { projectId: projectIdNorm },
+        {
+          $set: {
+            projectId: projectIdNorm,
+            diagramResult: { ...result, diagramType, evaluatedAt: nowIso() },
+            diagramXml: null, // drawing evaluated — no longer needed
+            updatedAt: nowIso(),
+          },
+          $setOnInsert: { createdAt: nowIso() },
+        },
+        { upsert: true }
+      );
+    }
+
     return res.json({ ...result, stage });
   } catch (err) {
     console.error("POST /api/pm/evaluate-diagram error:", err);
@@ -2734,6 +2862,8 @@ async function start() {
   requirementsCollection = db.collection("requirements");
   biasConsiderationsCollection = db.collection("bias_considerations");
   chatMessagesCollection = db.collection("chat_messages");
+  pmProgressCollection = db.collection("pm_progress");
+  await pmProgressCollection.createIndex({ projectId: 1 }, { unique: true });
 
   await sessions.createIndex({ projectId: 1 }, { unique: true });
   await deconstructModules.createIndex({ id: 1 }, { unique: true });

@@ -79,13 +79,48 @@ export const PMDiagramBuilder = () => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [iframeReady, setIframeReady] = useState(false);
   const initSentRef = useRef(false);
+  const pendingXmlToLoadRef = useRef<string | null>(null);
 
   const [evaluating, setEvaluating] = useState(false);
   const [result, setResult] = useState<EvalResult | null>(null);
-  // Pending evaluate — set when we need XML but iframe isn't ready yet
   const pendingEvalRef = useRef(false);
-  // Resolve callback for XML capture
   const xmlResolveRef = useRef<((xml: string) => void) | null>(null);
+
+  // Auto-save interval ref
+  const autoSaveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSavedXmlRef = useRef<string>("");
+
+  // ── Persist diagram XML to DB ────────────────────────────────────────────────
+  const saveDiagramXml = useCallback(async (xml: string, type: string | null, ex: Exercise | null) => {
+    if (!projectId || !type) return;
+    if (xml === lastSavedXmlRef.current) return; // no change
+    lastSavedXmlRef.current = xml;
+    try {
+      await fetch(`/api/pm/progress/${encodeURIComponent(projectId)}/save-diagram-xml`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ diagramXml: xml, diagramType: type, diagramExercise: ex }),
+      });
+    } catch { /* noop */ }
+  }, [projectId]);
+
+  // ── Capture current XML from draw.io and save ────────────────────────────────
+  const captureAndSave = useCallback(() => {
+    if (!iframeReady || !selectedType) return;
+    const promise = new Promise<string>((resolve) => {
+      xmlResolveRef.current = (xml) => {
+        xmlResolveRef.current = null;
+        resolve(xml);
+      };
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ action: "export", format: "xml" }),
+        "*"
+      );
+    });
+    promise.then((xml) => {
+      void saveDiagramXml(xml, selectedType, exercise);
+    });
+  }, [iframeReady, selectedType, exercise, saveDiagramXml]);
 
   // ── draw.io iframe message handler ──────────────────────────────────────────
   useEffect(() => {
@@ -101,15 +136,16 @@ export const PMDiagramBuilder = () => {
       if (event === "init" || event === "load") {
         if (!initSentRef.current) {
           initSentRef.current = true;
-          // Load a blank canvas
+          // Load saved XML if available, otherwise blank canvas
+          const xmlToLoad = pendingXmlToLoadRef.current || "<mxGraphModel/>";
+          pendingXmlToLoadRef.current = null;
           iframeRef.current?.contentWindow?.postMessage(
-            JSON.stringify({ action: "load", xml: "<mxGraphModel/>" }),
+            JSON.stringify({ action: "load", xml: xmlToLoad }),
             "*"
           );
         }
         setIframeReady(true);
 
-        // If evaluate was triggered before iframe was ready, proceed now
         if (pendingEvalRef.current) {
           pendingEvalRef.current = false;
           triggerExport();
@@ -130,13 +166,72 @@ export const PMDiagramBuilder = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Reset iframe when diagram type changes
+  const restoredFromDbRef = useRef(false);
+
+  // Reset iframe state when diagram type changes (but not on initial DB restore)
   useEffect(() => {
+    if (restoredFromDbRef.current) {
+      restoredFromDbRef.current = false;
+      return;
+    }
     setIframeReady(false);
     initSentRef.current = false;
     setResult(null);
     setHintVisible(false);
+    if (autoSaveIntervalRef.current) clearInterval(autoSaveIntervalRef.current);
   }, [selectedType]);
+
+  // Auto-save every 30s while a diagram type is selected
+  useEffect(() => {
+    if (!selectedType || !iframeReady) return;
+    autoSaveIntervalRef.current = setInterval(captureAndSave, 30_000);
+    return () => {
+      if (autoSaveIntervalRef.current) clearInterval(autoSaveIntervalRef.current);
+    };
+  }, [selectedType, iframeReady, captureAndSave]);
+
+  // Save on page unload
+  useEffect(() => {
+    const onUnload = () => captureAndSave();
+    window.addEventListener("beforeunload", onUnload);
+    return () => window.removeEventListener("beforeunload", onUnload);
+  }, [captureAndSave]);
+
+  // ── Load saved progress on mount ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!projectId) return;
+    let mounted = true;
+    async function loadProgress() {
+      try {
+        const res = await fetch(`/api/pm/progress/${encodeURIComponent(projectId)}`);
+        if (!res.ok || !mounted) return;
+        const data = await res.json() as {
+          diagramType?: string;
+          diagramExercise?: Exercise;
+          diagramXml?: string;
+          diagramResult?: EvalResult & { evaluatedAt?: string };
+        };
+        if (!mounted) return;
+        if (data.diagramResult) {
+          // Previously evaluated — restore type and show the result
+          restoredFromDbRef.current = true;
+          if (data.diagramType) setSelectedType(data.diagramType);
+          if (data.diagramExercise) setExercise(data.diagramExercise);
+          setResult(data.diagramResult);
+        } else if (data.diagramType && data.diagramXml) {
+          // In-progress drawing — restore type, queue XML to load into iframe
+          restoredFromDbRef.current = true;
+          setSelectedType(data.diagramType);
+          if (data.diagramExercise) setExercise(data.diagramExercise);
+          pendingXmlToLoadRef.current = data.diagramXml;
+          lastSavedXmlRef.current = data.diagramXml;
+        }
+      } catch { /* noop */ }
+    }
+    void loadProgress();
+    return () => { mounted = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   // ── Load exercise from LLM ───────────────────────────────────────────────────
   const loadExercise = useCallback(async (typeId: string) => {
@@ -145,6 +240,7 @@ export const PMDiagramBuilder = () => {
     setExercise(null);
     setResult(null);
     setHintVisible(false);
+    lastSavedXmlRef.current = ""; // reset so next save goes through
     try {
       const res = await fetch("/api/pm/diagram-exercise", {
         method: "POST",
@@ -154,6 +250,12 @@ export const PMDiagramBuilder = () => {
       if (!res.ok) throw new Error();
       const data = await res.json() as Exercise;
       setExercise(data);
+      // Persist exercise metadata + clear any old XML so we start fresh
+      await fetch(`/api/pm/progress/${encodeURIComponent(projectId)}/save-diagram-xml`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ diagramXml: null, diagramType: typeId, diagramExercise: data }),
+      });
     } catch {
       toast("Could not load exercise — check the backend is running.");
     } finally {
