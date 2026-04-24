@@ -38,7 +38,7 @@ const Landing = () => {
     const next = projectIdInput.trim();
     if (!next) return;
     setOnboarded(true);
-    navigate(`/workspace?tab=learn&projectId=${encodeURIComponent(next)}`);
+    navigate(`/workspace?projectId=${encodeURIComponent(next)}`);
   };
 
   return (
