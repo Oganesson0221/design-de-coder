@@ -77,7 +77,7 @@ export const MentorChat = ({ selectedComponent }: MentorChatProps) => {
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-card">
       <div className="border-b border-foreground/15 px-5 py-4">
         <div className="label-caps">— The Mentor —</div>
         <div className="font-display text-lg font-medium">In the margin, attentively</div>

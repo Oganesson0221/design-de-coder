@@ -97,7 +97,7 @@ const Landing = () => {
               transition={{ duration: 0.55 }}
               className="font-display text-5xl font-bold leading-[0.95] tracking-tight md:text-7xl lg:text-[7rem]"
             >
-              Turn a <span className="highlight-marker">half-baked idea</span>
+              Turn <span className="highlight-marker">any idea</span>
               <br />
               into a real{" "}
               <span className="font-editorial italic text-primary">system architecture</span>
@@ -126,9 +126,6 @@ const Landing = () => {
                 <Link to="/onboarding">
                   start building <ArrowRight className="h-4 w-4" />
                 </Link>
-              </Button>
-              <Button asChild variant="outline" size="xl">
-                <Link to="/workspace">peek at the studio</Link>
               </Button>
               <a
                 href="#how"
@@ -214,8 +211,8 @@ const Landing = () => {
             {[
               {
                 tag: "01 / interview",
-                title: "answer 3 dumb questions",
-                body: "What's the idea? Who's it for? What does a user actually do? That's it. No schema-speak.",
+                title: "answer 3 easy questions",
+                body: "What's the idea? Who's it for? What does a user actually do? That's it. No schema or design.",
                 color: "bg-secondary",
                 rot: "-rotate-1",
               },
@@ -375,9 +372,6 @@ const Landing = () => {
                 start building <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="xl" className="border-background bg-transparent text-background hover:bg-background hover:text-foreground">
-              <Link to="/workspace">just show me the studio</Link>
-            </Button>
           </div>
         </div>
       </section>
@@ -386,7 +380,7 @@ const Landing = () => {
         <div className="container flex flex-col items-center justify-between gap-4 sm:flex-row">
           <Logo />
           <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            <span>built at 3am · powered by curiosity</span>
+            <span></span>
             <span className="h-1 w-1 rounded-full bg-foreground/40" />
             <span>© {new Date().getFullYear()}</span>
           </div>

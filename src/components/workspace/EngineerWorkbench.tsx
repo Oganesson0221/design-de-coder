@@ -678,6 +678,14 @@ export default function EngineerWorkbench() {
     "I will only add GPUs when we have a concrete ML inference bottleneck with measured demand.",
   ]);
   const [activeProjectId, setActiveProjectId] = useState("");
+  const mentorScrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll mentor chat when messages change
+  useEffect(() => {
+    if (mentorScrollRef.current) {
+      mentorScrollRef.current.scrollTop = mentorScrollRef.current.scrollHeight;
+    }
+  }, [messages, terminology]);
 
   const display = isEditing ? draft : schema;
   const rationalePoints = useMemo(() => {
@@ -1247,87 +1255,76 @@ export default function EngineerWorkbench() {
               </div>
 
               {sideTab === "mentor" && (
-                <div className="min-h-0 flex-1 flex flex-col">
-                  <div className="p-4 border-b border-foreground/15">
-                    <div className="flex items-center justify-between">
-                      <div className="label-caps">Engineering Copilot</div>
-                      <Badge variant="outline" className="border-foreground/20">
-                        {mentorPoints} pts
-                      </Badge>
-                    </div>
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Ask your scale/performance decisions. The mentor first
-                      explains the terms in the question, then probes your
-                      architecture choices.
-                    </p>
-                    {recommendedAnswers.length > 0 && (
-                      <div className="mt-3 space-y-1">
-                        <div className="label-caps">Thinking prompts</div>
-                        {recommendedAnswers.map((ans) => (
-                          <button
-                            key={ans}
-                            onClick={() => setMentorInput(ans)}
-                            className="block w-full border-l-2 border-foreground/20 py-1 pl-2 text-left text-xs text-muted-foreground hover:text-foreground hover:border-primary"
-                          >
-                            {ans}
-                          </button>
-                        ))}
+                <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
+                  {/* Scrollable content area */}
+                  <div ref={mentorScrollRef} className="flex-1 min-h-0 overflow-y-auto">
+                    <div className="p-4 border-b border-foreground/15">
+                      <div className="flex items-center justify-between">
+                        <div className="label-caps">Engineering Copilot</div>
+                        <Badge variant="outline" className="border-foreground/20">
+                          {mentorPoints} pts
+                        </Badge>
                       </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                    {messages.map((m, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                      >
-                        <div className="label-caps mb-1">
-                          {m.role === "assistant" ? "Mentor" : "You"}
-                        </div>
-                        <p
-                          className={`text-sm leading-relaxed ${m.role === "assistant" ? "italic text-foreground/85" : "text-foreground"}`}
-                        >
-                          {m.text}
-                        </p>
-                      </motion.div>
-                    ))}
-                    {terminology.length > 0 && (
-                      <div className="rounded-lg border border-foreground/15 bg-background p-3">
-                        <div className="label-caps mb-2">Terminology</div>
-                        <div className="space-y-2">
-                          {terminology.map((t) => (
-                            <div key={t.term}>
-                              <div className="text-xs font-semibold text-foreground">
-                                {t.term}
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                {t.explanation}
-                              </p>
-                            </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Ask your scale/performance decisions. The mentor first
+                        explains the terms in the question, then probes your
+                        architecture choices.
+                      </p>
+                      {recommendedAnswers.length > 0 && (
+                        <div className="mt-3 space-y-1">
+                          <div className="label-caps">Thinking prompts</div>
+                          {recommendedAnswers.map((ans) => (
+                            <button
+                              key={ans}
+                              onClick={() => setMentorInput(ans)}
+                              className="block w-full border-l-2 border-foreground/20 py-1 pl-2 text-left text-xs text-muted-foreground hover:text-foreground hover:border-primary"
+                            >
+                              {ans}
+                            </button>
                           ))}
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
+
+                    <div className="p-4 space-y-3">
+                      {messages.map((m, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                        >
+                          <div className="label-caps mb-1">
+                            {m.role === "assistant" ? "Mentor" : "You"}
+                          </div>
+                          <p
+                            className={`text-sm leading-relaxed ${m.role === "assistant" ? "italic text-foreground/85" : "text-foreground"}`}
+                          >
+                            {m.text}
+                          </p>
+                        </motion.div>
+                      ))}
+                      {terminology.length > 0 && (
+                        <div className="rounded-lg border border-foreground/15 bg-background p-3">
+                          <div className="label-caps mb-2">Terminology</div>
+                          <div className="space-y-2">
+                            {terminology.map((t) => (
+                              <div key={t.term}>
+                                <div className="text-xs font-semibold text-foreground">
+                                  {t.term}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {t.explanation}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="p-3 border-t border-foreground/15">
-                    <div className="space-y-2 mb-2">
-                      {[
-                        "Explain DAU and peak concurrency in this context, then ask me one architecture tradeoff question.",
-                        "Explain p95 latency for my product and help me choose a launch target.",
-                        "Explain when GPUs are actually needed for this system and what signal should trigger adoption.",
-                      ].map((hint) => (
-                        <button
-                          key={hint}
-                          onClick={() => setMentorInput(hint)}
-                          className="block w-full border-l-2 border-foreground/20 py-1 pl-2 text-left text-xs text-muted-foreground hover:text-foreground hover:border-primary"
-                        >
-                          {hint}
-                        </button>
-                      ))}
-                    </div>
+                  {/* Fixed input at bottom */}
+                  <div className="shrink-0 p-3 border-t border-foreground/15">
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();

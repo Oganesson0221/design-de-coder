@@ -337,12 +337,39 @@ const PMSection = ({ onStageChange, initialStage }: { onStageChange?: (stage: PM
 
 // ─── Main RoleLearning component ──────────────────────────────────────────────
 
+const RoleTabs = ({ role, setRole }: { role: Role; setRole: (r: Role) => void }) => (
+  <div className="shrink-0 border-b border-foreground/15">
+    <div className="grid w-full grid-cols-3 gap-px border-y border-foreground/20 bg-foreground/20">
+      {ROLES.map((r) => {
+        const active = role === r.id;
+        return (
+          <button
+            key={r.id}
+            onClick={() => setRole(r.id)}
+            className={`group min-w-0 p-3 text-left transition-smooth ${
+              active ? "bg-foreground text-background" : "bg-card hover:bg-secondary"
+            }`}
+          >
+            <div className="flex items-baseline gap-2">
+              <span className={`font-display text-xl ${active ? "text-background/70" : "text-primary"}`}>{r.numeral}</span>
+              <div>
+                <div className="font-display text-base font-medium">{r.label}</div>
+                <div className={`mt-0.5 font-display text-xs italic ${active ? "text-background/80" : "text-muted-foreground"}`}>
+                  {r.tagline}
+                </div>
+              </div>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
 const RoleLearning = () => {
   const answers = useProject((s) => s.answers);
   const storeProjectId = useProject((s) => s.projectId);
   const [role, setRole] = useState<Role>("pm");
-  const [points, setPoints] = useState(0);
-  // Track PM stage so we can switch outer layout
   const [pmStage, setPmStage] = useState<PMStage>("loading");
 
   const projectId = useMemo(
@@ -350,147 +377,36 @@ const RoleLearning = () => {
     [storeProjectId, answers.idea, answers.audience, answers.flow]
   );
 
-  // ─── Engineer role: Full-height EngineerWorkbench ───
-  if (role === "engineer") {
-    return (
-      <div className="h-full flex flex-col bg-paper">
-        <div className="shrink-0 border-b border-foreground/15 px-0 py-0">
-          <div className="grid w-full grid-cols-3 gap-px border-y border-foreground/20 bg-foreground/20">
-            {ROLES.map((r) => {
-              const active = role === r.id;
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => setRole(r.id)}
-                  className={`group min-w-0 p-3 text-left transition-smooth ${
-                    active ? "bg-foreground text-background" : "bg-card hover:bg-secondary"
-                  }`}
-                >
-                  <div className="flex items-baseline gap-2">
-                    <span className={`font-display text-xl ${active ? "text-background/70" : "text-primary"}`}>{r.numeral}</span>
-                    <div>
-                      <div className="font-display text-base font-medium">{r.label}</div>
-                      <div className={`mt-0.5 font-display text-xs italic ${active ? "text-background/80" : "text-muted-foreground"}`}>
-                        {r.tagline}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-        <div className="flex-1 min-h-0 p-0">
-          <EngineerWorkbench />
-        </div>
-      </div>
-    );
-  }
-
-  // ─── PM role in diagram stage: Full-height layout ───
-  if (role === "pm" && pmStage === "diagram") {
-    return (
-      <div className="flex h-full flex-col bg-paper">
-        {/* Compact header + role tabs strip */}
-        <div className="shrink-0 border-b-2 border-foreground bg-background px-5 py-3">
-          <div className="flex items-center gap-4">
-            <div>
-              <div className="label-caps">Chapter Two · PM Diagram Practice</div>
-            </div>
-            <div className="ml-auto flex gap-1">
-              {ROLES.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => { setRole(r.id); setPmStage("loading"); }}
-                  className={`border px-3 py-1 font-mono text-[9px] uppercase tracking-[0.12em] transition-all ${
-                    role === r.id
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-foreground/20 text-muted-foreground hover:border-foreground"
-                  }`}
-                >
-                  {r.numeral} {r.label.split(" ")[1] ?? r.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <PMSection onStageChange={setPmStage} initialStage="diagram" />
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Default scrollable layout (PM questions stage, Ethicist) ───
   return (
-    <div className="h-full overflow-y-auto bg-paper">
-      <div className="container max-w-5xl py-10">
-        {/* Header */}
-        <div className="mb-10 border-b-2 border-foreground pb-6">
-          <div className="flex items-baseline justify-between">
-            <div>
-              <div className="label-caps mb-2">Chapter Two</div>
-              <h1 className="font-display text-4xl font-medium leading-none md:text-5xl">
-                Three Lenses on a Single Design
-              </h1>
-              <p className="mt-3 max-w-2xl font-display text-lg italic text-muted-foreground">
-                The same architecture, examined by three professionals who would rarely sit in the same meeting.
-              </p>
-            </div>
-            {role !== "pm" && points > 0 && (
-              <div className="hidden border border-foreground/30 px-5 py-3 text-center md:block">
-                <div className="label-caps">Marks earned</div>
-                <div className="font-display text-3xl font-medium text-primary">{points}</div>
+    <div className="h-full w-full flex flex-col bg-paper">
+      {/* Role tabs - always full width at top */}
+      <RoleTabs role={role} setRole={setRole} />
+
+      {/* Content area */}
+      <div className="flex-1 min-h-0 overflow-hidden">
+        {/* Engineer */}
+        {role === "engineer" && <EngineerWorkbench />}
+
+        {/* PM */}
+        {role === "pm" && (
+          <div className="h-full overflow-y-auto">
+            {pmStage === "diagram" ? (
+              <PMSection onStageChange={setPmStage} initialStage="diagram" />
+            ) : (
+              <div className="container max-w-4xl py-10 px-6">
+                <PMSection onStageChange={setPmStage} />
               </div>
             )}
           </div>
-        </div>
-
-        {/* Role tabs */}
-        <div className="mb-10 grid gap-px border border-foreground/20 bg-foreground/20 md:grid-cols-3">
-          {ROLES.map((r) => {
-            const active = role === r.id;
-            return (
-              <button
-                key={r.id}
-                onClick={() => setRole(r.id)}
-                className={`group p-5 text-left transition-smooth ${
-                  active ? "bg-foreground text-background" : "bg-card hover:bg-secondary"
-                }`}
-              >
-                <div className="flex items-baseline gap-3">
-                  <span className={`font-display text-2xl ${active ? "text-background/70" : "text-primary"}`}>{r.numeral}</span>
-                  <div>
-                    <div className="font-display text-lg font-medium">{r.label}</div>
-                    <div className={`mt-0.5 font-display text-sm italic ${active ? "text-background/80" : "text-muted-foreground"}`}>
-                      {r.tagline}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* PM: two-stage interactive flow */}
-        {role === "pm" && (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key="pm"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.25 }}
-              className="min-h-[500px]"
-            >
-              <PMSection onStageChange={setPmStage} />
-            </motion.div>
-          </AnimatePresence>
         )}
 
-        {/* Ethicist: BiasDetector */}
+        {/* Ethicist */}
         {role === "ethicist" && (
-          <BiasDetector projectId={projectId} />
+          <div className="h-full overflow-y-auto">
+            <div className="container max-w-4xl py-10 px-6">
+              <BiasDetector projectId={projectId} />
+            </div>
+          </div>
         )}
       </div>
     </div>
