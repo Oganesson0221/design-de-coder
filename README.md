@@ -10,7 +10,7 @@ Add these values in `.env`:
 OPENAI_API_KEY=your_openai_key
 MONGODB_URI=your_mongodb_connection_string
 MONGODB_DB=design_de_coder
-PORT=8787
+PORT=3001
 ```
 
 ## Run
@@ -24,7 +24,7 @@ npm run dev
 
 This starts:
 - Vite client on `http://localhost:8080`
-- Engineer API on `http://localhost:8787`
+- Engineer API on `http://localhost:3001`
 
 Engineer mode now stores:
 - Generated DB schema
