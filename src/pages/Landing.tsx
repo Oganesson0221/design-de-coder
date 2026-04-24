@@ -50,44 +50,37 @@ const Landing = () => {
         <div className="container flex h-9 items-center justify-between font-mono text-[10px] uppercase tracking-[0.22em]">
           <span className="flex items-center gap-2">
             <Sparkles className="h-3 w-3 text-secondary" />
-            sketch · stamp · ship
+            learn system design by building
           </span>
-          <span className="hidden sm:inline">a system-design playground for builders, not a tutorial</span>
+          <span className="hidden sm:inline">guided architecture practice for emerging builders</span>
           <span className="flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-success" />
-            students online: 247
+            mentor-guided
           </span>
         </div>
       </div>
 
       {/* Hero */}
-      <section className="relative border-b-2 border-foreground">
-        {/* decorative stickers */}
+      <section className="relative overflow-hidden border-b-2 border-foreground">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute right-[8%] top-12 hidden rotate-[6deg] md:block">
-            <div className="sticker bg-accent text-accent-foreground">★ no slides</div>
-          </div>
-          <div className="absolute left-[6%] top-32 hidden -rotate-[8deg] md:block">
-            <div className="sticker bg-secondary">↯ chaos welcome</div>
-          </div>
-          <div className="absolute bottom-16 right-[12%] hidden rotate-[-4deg] md:block">
-            <div className="sticker bg-card">{"// hint: drag me"}</div>
-          </div>
+          <div className="absolute left-[-5rem] top-16 h-56 w-56 rounded-full bg-secondary/30 blur-3xl" />
+          <div className="absolute right-[-4rem] top-10 h-64 w-64 rounded-full bg-accent/10 blur-3xl" />
+          <div className="absolute bottom-[-6rem] left-1/3 h-52 w-52 rounded-full bg-primary/10 blur-3xl" />
         </div>
 
-        <div className="container relative py-20 md:py-28">
-          <div className="mx-auto max-w-5xl">
+        <div className="container relative py-16 md:py-24">
+          <div className="mx-auto max-w-6xl">
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
-              className="mb-6 flex flex-wrap items-center gap-2"
+              className="mb-6 flex flex-wrap items-center gap-3"
             >
               <span className="sticker bg-secondary">
                 <span className="font-bold text-primary">README.md</span>
               </span>
               <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                — for the kid who keeps asking <em className="not-italic text-foreground">"but how does it actually work?"</em>
+                — for every curious builder asking <em className="not-italic text-foreground">"but how does it actually work?"</em>
               </span>
             </motion.div>
 
@@ -95,12 +88,12 @@ const Landing = () => {
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55 }}
-              className="font-display text-5xl font-bold leading-[0.95] tracking-tight md:text-7xl lg:text-[7rem]"
+              className="font-display text-4xl font-bold leading-[0.98] tracking-tight md:text-6xl lg:text-[6.25rem]"
             >
-              Turn <span className="highlight-marker">any idea</span>
+              Move from <span className="highlight-marker">prompting</span>
               <br />
-              into a real{" "}
-              <span className="font-editorial italic text-primary">system architecture</span>
+              to designing real{" "}
+              <span className="font-editorial italic text-primary">systems and agents</span>
               <span className="text-accent">.</span>
             </motion.h1>
 
@@ -108,19 +101,19 @@ const Landing = () => {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.55, delay: 0.1 }}
-              className="mt-8 max-w-2xl font-display text-lg leading-relaxed text-muted-foreground md:text-xl"
+              className="mt-6 max-w-4xl font-display text-lg leading-relaxed text-muted-foreground md:text-xl"
             >
-              Three questions in. A working diagram out. Then a mentor who asks the
-              annoying-but-important questions until your design{" "}
-              <span className="highlight-pink">actually scales</span>, doesn't leak
-              data, and doesn't quietly ignore half its users.
+              Archway helps the next generation of builders shape ideas into system
+              architecture they can explain, critique, and improve. Start with a
+              concept, turn it into a working design, then pressure-test it with
+              mentors before bias and bad assumptions harden into the product.
             </motion.p>
 
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className="mt-10 flex flex-wrap items-center gap-4"
+              className="mt-8 flex flex-wrap items-center gap-4"
             >
               <Button asChild variant="hero" size="xl">
                 <Link to="/onboarding">
@@ -138,7 +131,7 @@ const Landing = () => {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.28 }}
-              className="mt-4 max-w-2xl rounded-lg border border-foreground/20 bg-card p-3"
+              className="mt-6 max-w-3xl rounded-xl border border-foreground/15 bg-background/80 p-4 shadow-stamp-sm backdrop-blur-sm"
             >
               <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                 Open Existing Project
@@ -179,15 +172,15 @@ const Landing = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4 }}
-              className="mt-14 grid grid-cols-2 gap-4 border-t-2 border-foreground pt-6 md:grid-cols-4"
+              className="mt-12 grid grid-cols-2 gap-4 border-t border-foreground/20 pt-6 md:grid-cols-4"
             >
               {[
-                { k: "3", v: "questions to start" },
-                { k: "5", v: "node clusters drawn" },
-                { k: "∞", v: "drag-drop iterations" },
-                { k: "0", v: "boilerplate" },
+                { k: "3", v: "guided prompts" },
+                { k: "1", v: "working system map" },
+                { k: "3", v: "review lenses" },
+                { k: "0", v: "boilerplate setup" },
               ].map((s) => (
-                <div key={s.v}>
+                <div key={s.v} className="rounded-xl border border-foreground/10 bg-background/60 p-4">
                   <div className="font-display text-4xl font-bold text-foreground">{s.k}</div>
                   <div className="label-caps mt-1">{s.v}</div>
                 </div>
@@ -198,37 +191,34 @@ const Landing = () => {
       </section>
 
       {/* HOW IT WORKS — three index cards */}
-      <section id="how" className="border-b-2 border-foreground bg-grid-fine">
+      <section id="how" className="border-b-2 border-foreground bg-paper">
         <div className="container py-20 md:py-24">
           <div className="mb-12 flex items-baseline justify-between border-b-2 border-foreground pb-4">
             <h2 className="font-display text-3xl font-bold md:text-5xl">
-              The loop<span className="text-accent">.</span>
+              How it works<span className="text-accent">.</span>
             </h2>
-            <span className="label-caps">3 moves · then repeat</span>
+            <span className="label-caps">3 steps · same build flow</span>
           </div>
 
           <div className="grid gap-8 md:grid-cols-3">
             {[
               {
                 tag: "01 / interview",
-                title: "answer 3 easy questions",
-                body: "What's the idea? Who's it for? What does a user actually do? That's it. No schema or design.",
-                color: "bg-secondary",
-                rot: "-rotate-1",
+                title: "clarify the idea",
+                body: "Start with the problem, the audience, and the user flow. You do not need a schema or architecture plan to begin.",
+                color: "bg-background",
               },
               {
                 tag: "02 / draft",
-                title: "get a working diagram",
-                body: "Frontend, backend, APIs, db, AI — drawn for you, clustered, annotated. Click any box for the why.",
+                title: "shape the architecture",
+                body: "See the stack take form across frontend, backend, APIs, data, and agents. Inspect each part and understand why it is there.",
                 color: "bg-card",
-                rot: "rotate-1",
               },
               {
                 tag: "03 / interrogate",
-                title: "argue with a mentor",
-                body: "PM, engineer, ethicist. Each grills your design from a different angle. Earn pts, fix gaps, ship.",
-                color: "bg-accent text-accent-foreground",
-                rot: "-rotate-1",
+                title: "review the tradeoffs",
+                body: "Pressure-test the design with mentors who surface product, engineering, and ethics questions before they become product defaults.",
+                color: "bg-secondary/40",
               },
             ].map((c, i) => (
               <motion.article
@@ -237,9 +227,9 @@ const Landing = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.4, delay: i * 0.08 }}
-                className={`group relative border-2 border-foreground p-7 shadow-stamp transition-spring hover:-translate-y-1 hover:shadow-stamp-lg ${c.color} ${c.rot}`}
+                className={`group relative rounded-2xl border border-foreground/15 p-7 shadow-stamp-sm transition-spring hover:-translate-y-1 hover:shadow-stamp ${c.color}`}
               >
-                <div className="mb-4 inline-block border-2 border-foreground bg-background px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-foreground">
+                <div className="mb-4 inline-block rounded-full border border-foreground/20 bg-background px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em] text-foreground">
                   {c.tag}
                 </div>
                 <h3 className="font-display text-2xl font-bold leading-tight">{c.title}</h3>
@@ -257,14 +247,13 @@ const Landing = () => {
             <div>
               <div className="label-caps mb-4">— roleplay mode —</div>
               <h2 className="font-display text-4xl font-bold leading-tight md:text-5xl">
-                One idea.
+                One system.
                 <br />
-                Three <span className="font-editorial italic text-primary">very</span>{" "}
-                <span className="highlight-marker">opinionated</span> coworkers.
+                Three perspectives that sharpen it.
               </h2>
               <p className="mt-5 font-display text-lg text-muted-foreground">
-                Switch hats. Each role hands you a different stack of objections —
-                the kind you'd actually hear in a sprint planning meeting.
+                Shift between product, engineering, and ethics so your architecture
+                reflects more than one viewpoint from the start.
               </p>
             </div>
 
@@ -300,9 +289,9 @@ const Landing = () => {
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
                     transition={{ duration: 0.35, delay: i * 0.08 }}
-                    className={`group flex items-start gap-5 border-2 border-foreground p-5 shadow-stamp-sm transition-smooth hover:shadow-stamp ${row.bg}`}
+                    className={`group flex items-start gap-5 rounded-2xl border border-foreground/15 p-5 shadow-stamp-sm transition-smooth hover:shadow-stamp ${row.bg}`}
                   >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center border-2 border-foreground bg-background">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-foreground/15 bg-background">
                       <Icon className="h-5 w-5 text-foreground" />
                     </div>
                     <div className="flex-1">
@@ -323,27 +312,26 @@ const Landing = () => {
       </section>
 
       {/* DECONSTRUCTION */}
-      <section className="border-b-2 border-foreground bg-dots">
+      <section className="border-b-2 border-foreground bg-paper">
         <div className="container py-20 md:py-24">
-          <div className="mx-auto max-w-4xl text-center">
+          <div className="mx-auto max-w-5xl text-center">
             <div className="label-caps mb-4">— reverse-engineering bench —</div>
             <h2 className="font-display text-4xl font-bold leading-tight md:text-6xl">
-              Take apart{" "}
-              <span className="font-editorial italic text-primary">instagram</span>.
+              Reverse-engineer products
               <br />
-              <span className="highlight-pink">guess the stack.</span> earn pts.
+              to understand how they work.
             </h2>
             <p className="mx-auto mt-6 max-w-2xl font-display text-lg text-muted-foreground">
-              Pick a specimen. The platform asks what you'd reach for — CDN? sharded
-              postgres? vector db? — and tells you, gently, when you're wrong.
+              Pick a familiar product, inspect the tradeoffs, and compare your
+              architecture instincts against a real system design breakdown.
             </p>
 
             <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
               {["instagram", "tinder", "uber", "spotify", "doordash", "discord"].map((app, i) => (
                 <span
                   key={app}
-                  className={`sticker hover-wiggle press cursor-pointer text-sm ${i % 3 === 0 ? "bg-secondary" : i % 3 === 1 ? "bg-card" : "bg-accent text-accent-foreground"}`}
-                  style={{ transform: `rotate(${(i % 2 === 0 ? -1 : 1) * (Math.random() * 3 + 1)}deg)` }}
+                  className={`cursor-pointer rounded-full border border-foreground/15 px-4 py-2 font-mono text-sm uppercase tracking-[0.12em] transition-smooth hover:-translate-y-0.5 hover:bg-secondary/60 ${i % 3 === 0 ? "bg-secondary/40" : i % 3 === 1 ? "bg-background" : "bg-card"}`}
+                  style={{ transform: `rotate(${[-2, 1, -1, 2, -1, 1][i]}deg)` }}
                 >
                   <Database className="h-3 w-3" /> {app}
                 </span>
@@ -356,15 +344,14 @@ const Landing = () => {
       {/* FINAL CTA */}
       <section className="border-b-2 border-foreground bg-foreground text-background">
         <div className="container py-20 text-center md:py-28">
-          <h2 className="mx-auto max-w-3xl font-display text-4xl font-bold leading-tight md:text-6xl">
-            Stop reading{" "}
-            <span className="font-editorial italic text-secondary">"system design"</span>{" "}
-            blog posts.
+          <h2 className="mx-auto max-w-4xl font-display text-4xl font-bold leading-tight md:text-6xl">
+            Learn system design
             <br />
-            <span className="text-accent">Draw one.</span>
+            by directing one yourself.
           </h2>
-          <p className="mx-auto mt-5 max-w-xl font-display text-lg text-background/70">
-            10 minutes from idea to first diagram. No signup. No "book a demo."
+          <p className="mx-auto mt-5 max-w-3xl font-display text-lg text-background/70">
+            Build the first draft, inspect the tradeoffs, and keep iterating with
+            the same workflow you already have.
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-4">
             <Button asChild variant="secondary" size="xl">
@@ -380,7 +367,7 @@ const Landing = () => {
         <div className="container flex flex-col items-center justify-between gap-4 sm:flex-row">
           <Logo />
           <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            <span></span>
+            <span>agentic playground for future system builders</span>
             <span className="h-1 w-1 rounded-full bg-foreground/40" />
             <span>© {new Date().getFullYear()}</span>
           </div>

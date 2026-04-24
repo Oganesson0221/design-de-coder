@@ -211,6 +211,17 @@ function drawioMxfileFromSchema(schema) {
 
   const palette = ["#eef6ff", "#f5f3ff", "#ecfeff", "#f0fdf4", "#fff7ed"];
 
+  const isConstraintOnlyLine = (line) => {
+    const compact = String(line || "").replace(/\s+/g, " ").trim();
+    if (!compact || /^-+$/.test(compact)) return true;
+    return (
+      !compact.includes(":") &&
+      /\b(PK|FK|PRIMARY KEY|FOREIGN KEY|NOT NULL|NULLABLE|UNIQUE|DEFAULT|REFERENCES|CHECK|AUTO_INCREMENT)\b/i.test(
+        compact,
+      )
+    );
+  };
+
   schema.tables.forEach((table, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
@@ -230,7 +241,9 @@ function drawioMxfileFromSchema(schema) {
         .filter(Boolean);
       if (parts.length > 0) {
         displayName = parts[0];
-        fallbackLines.push(...parts.slice(1));
+        fallbackLines.push(
+          ...parts.slice(1).filter((line) => !isConstraintOnlyLine(line)),
+        );
       }
     }
     if ((!Array.isArray(table.columns) || table.columns.length === 0) && fallbackLines.length === 0 && /:\s/.test(rawTableName)) {
@@ -238,7 +251,9 @@ function drawioMxfileFromSchema(schema) {
       const pieces = cleaned.split(/\s+(?=[a-zA-Z_][a-zA-Z0-9_]*\s*:\s)/g);
       if (pieces.length > 1) {
         displayName = pieces[0].replace(/:$/, "").trim();
-        fallbackLines.push(...pieces.slice(1));
+        fallbackLines.push(
+          ...pieces.slice(1).filter((line) => !isConstraintOnlyLine(line)),
+        );
       }
     }
 
@@ -251,9 +266,6 @@ function drawioMxfileFromSchema(schema) {
       if (/\b(FK|FOREIGN KEY)\b/i.test(normalized)) tags.push("FK");
       const firstLine = `${c.name}: ${c.type}${tags.length ? ` [${tags.join("/")}]` : ""}`;
       lines.push(...wrapLine(firstLine, 48));
-      if (normalized) {
-        lines.push(...wrapLine(`  ${normalized}`, 50));
-      }
     });
 
     if (lines.length === 0 && fallbackLines.length > 0) {

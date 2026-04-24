@@ -148,8 +148,22 @@ function DrawioFrame({ xml }: { xml: string }) {
             Array.from(m.entries())
               .map(([k, v]) => `${k}=${v}`)
               .join(";");
+          const isConstraintOnlyLine = (line: string) => {
+            const compact = String(line || "").replace(/\s+/g, " ").trim();
+            if (!compact || /^-+$/.test(compact)) return true;
+            return (
+              !compact.includes(":") &&
+              /\b(PK|FK|PRIMARY KEY|FOREIGN KEY|NOT NULL|NULLABLE|UNIQUE|DEFAULT|REFERENCES|CHECK|AUTO_INCREMENT)\b/i.test(
+                compact,
+              )
+            );
+          };
           const normalizeCellText = (rawValue: string) => {
             const normalized = rawValue
+              .replace(/<br\s*\/?>/gi, "\n")
+              .replace(/<\/div>/gi, "\n")
+              .replace(/<\/p>/gi, "\n")
+              .replace(/<[^>]+>/g, "")
               .split("\\\\n")
               .join("\n")
               .split("\\n")
@@ -181,7 +195,11 @@ function DrawioFrame({ xml }: { xml: string }) {
             };
 
             if (normalized.includes("\n")) {
-              return wrapRows(normalized.split(/\r?\n/), 72).join("\n");
+              const filtered = normalized
+                .split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter((line) => !isConstraintOnlyLine(line));
+              return wrapRows(filtered, 72).join("\n");
             }
             const compact = normalized.replace(/\s+/g, " ").trim();
             const parts = compact.split(
@@ -192,6 +210,7 @@ function DrawioFrame({ xml }: { xml: string }) {
             const rows = parts
               .slice(1)
               .map((x) => x.trim())
+              .filter((line) => !isConstraintOnlyLine(line))
               .filter(Boolean);
             const wrapped = wrapRows(rows, 72);
             return [header, ...wrapped].join("\n");
@@ -214,7 +233,7 @@ function DrawioFrame({ xml }: { xml: string }) {
             const rowLines = normalizedValue
               .split(/\r?\n/)
               .map((x) => x.trim())
-              .filter(Boolean);
+              .filter((line) => line && !/^[-–—]+$/.test(line));
             const header = rowLines[0] || "table";
             const rest = rowLines.slice(1);
             const htmlValue = [

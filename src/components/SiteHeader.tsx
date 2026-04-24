@@ -19,6 +19,11 @@ const WORKSPACE_LINKS = [
   { to: "/workspace?tab=deconstruct", tab: "deconstruct", label: "Reverse-eng" },
 ];
 
+const COMMUNITY_LINKS = [
+  { to: "/community", label: "Community" },
+  { to: "/mentor", label: "Mentors" },
+];
+
 export const SiteHeader = () => {
   const navigate = useNavigate();
   const projectId = useProject((s) => s.projectId);
@@ -76,8 +81,29 @@ export const SiteHeader = () => {
   return (
     <>
       <header className="sticky top-0 z-40 border-b-2 border-foreground bg-background/90 backdrop-blur">
-        <div className="container flex h-16 items-center justify-between">
-          <Logo />
+        <div className="container py-3 md:flex md:h-16 md:items-center md:justify-between md:py-0">
+          <div className="flex items-center justify-between gap-4">
+            <Logo />
+            <div className="flex items-center gap-2">
+              <Button asChild variant="hero" size="sm">
+                <Link to="/onboarding">ship it →</Link>
+              </Button>
+            </div>
+          </div>
+
+          <nav className="mt-3 flex items-center gap-1 overflow-x-auto md:hidden">
+            {COMMUNITY_LINKS.map((l) => (
+              <NavLink
+                key={l.label}
+                to={l.to}
+                className="shrink-0 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground transition-smooth hover:bg-secondary hover:text-foreground"
+                activeClassName="bg-secondary text-foreground"
+              >
+                {l.label}
+              </NavLink>
+            ))}
+          </nav>
+
           <nav className="hidden items-center gap-1 md:flex">
             {WORKSPACE_LINKS.map((l) => (
               <NavLink
@@ -90,10 +116,7 @@ export const SiteHeader = () => {
                 {l.label}
               </NavLink>
             ))}
-            {[
-              { to: "/community", label: "Community" },
-              { to: "/mentor", label: "Mentors" },
-            ].map((l) => (
+            {COMMUNITY_LINKS.map((l) => (
               <NavLink
                 key={l.label}
                 to={l.to}
@@ -104,11 +127,6 @@ export const SiteHeader = () => {
               </NavLink>
             ))}
           </nav>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="hero" size="sm">
-              <Link to="/onboarding">ship it →</Link>
-            </Button>
-          </div>
         </div>
       </header>
 

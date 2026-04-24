@@ -1,8 +1,23 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Check, MessageCircle, Star, Award, Users } from "lucide-react";
+import {
+  Sparkles,
+  Check,
+  MessageCircle,
+  Star,
+  Award,
+  Users,
+} from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useProject } from "@/stores/project";
@@ -103,6 +118,9 @@ const Mentor = () => {
   const womanInTeam = useProject((s) => s.womanInTeam);
 
   const [showForm, setShowForm] = useState(false);
+  const [showInboxDialog, setShowInboxDialog] = useState(false);
+  const [mentorEmail, setMentorEmail] = useState("");
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [form, setForm] = useState({
     handle: "",
     role: "",
@@ -123,7 +141,24 @@ const Mentor = () => {
     if (form.isWoman) {
       setWomanInTeam(true);
     }
-    toast(`+100 pts · mentor badge unlocked${form.isWoman ? " · +50 she-builds bonus" : ""}`);
+    toast(
+      `+100 pts · mentor badge unlocked${form.isWoman ? " · +50 she-builds bonus" : ""}`,
+    );
+  };
+
+  const submitMentorEmail = () => {
+    const email = mentorEmail.trim();
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      toast("Please enter a valid email ID.");
+      return;
+    }
+    setEmailSubmitted(true);
+  };
+
+  const closeInboxDialog = () => {
+    setShowInboxDialog(false);
+    setMentorEmail("");
+    setEmailSubmitted(false);
   };
 
   const womenMentors = MENTORS.filter((m) => m.isWoman).length;
@@ -140,7 +175,8 @@ const Mentor = () => {
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span className="sticker bg-secondary">/mentors</span>
                 <span className="sticker bg-accent text-accent-foreground hover-wiggle">
-                  <Sparkles className="h-3 w-3" /> {womenMentors} women mentors active
+                  <Sparkles className="h-3 w-3" /> {womenMentors} women mentors
+                  active
                 </span>
               </div>
               <h1 className="font-display text-5xl font-bold leading-[0.95] md:text-6xl">
@@ -151,7 +187,9 @@ const Mentor = () => {
                 <span className="text-accent">.</span>
               </h1>
               <p className="mt-5 max-w-xl font-display text-lg text-muted-foreground">
-                Mentors are folks who've shipped the loop a few times. They review designs, answer the dumb-but-important questions, and don't bill you.
+                Mentors are folks who've shipped the loop a few times. They
+                review designs, answer the dumb-but-important questions, and
+                don't bill you.
               </p>
             </div>
             <div className="border-2 border-foreground bg-background p-5 shadow-stamp">
@@ -159,7 +197,8 @@ const Mentor = () => {
               <ul className="space-y-2 font-display text-sm">
                 <li className="flex items-baseline gap-2">
                   <Check className="h-4 w-4 shrink-0 text-success" />
-                  earn the <span className="font-bold">mentor badge</span> + 100 pts
+                  earn the <span className="font-bold">mentor badge</span> + 100
+                  pts
                 </li>
                 <li className="flex items-baseline gap-2">
                   <Check className="h-4 w-4 shrink-0 text-success" />
@@ -172,12 +211,13 @@ const Mentor = () => {
                 <li className="flex items-baseline gap-2 border-t-2 border-dashed border-foreground/20 pt-2">
                   <Sparkles className="h-4 w-4 shrink-0 text-highlight" />
                   <span>
-                    women in tech: <span className="font-bold">+50 pts</span> on signup, double-featured the first month
+                    women in tech: <span className="font-bold">+50 pts</span> on
+                    signup, double-featured the first month
                   </span>
                 </li>
               </ul>
               <Button
-                onClick={() => setShowForm(true)}
+                onClick={() => setShowInboxDialog(true)}
                 variant="hero"
                 size="lg"
                 className="mt-5 w-full"
@@ -195,7 +235,8 @@ const Mentor = () => {
             the bench<span className="text-accent">.</span>
           </h2>
           <span className="label-caps flex items-center gap-2">
-            <Users className="h-3 w-3" /> {MENTORS.filter((m) => m.open).length} taking learners now
+            <Users className="h-3 w-3" /> {MENTORS.filter((m) => m.open).length}{" "}
+            taking learners now
           </span>
         </div>
 
@@ -217,10 +258,14 @@ const Mentor = () => {
                 </span>
                 <span
                   className={`flex items-center gap-1 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] ${
-                    m.open ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"
+                    m.open
+                      ? "bg-success text-success-foreground"
+                      : "bg-muted text-muted-foreground"
                   }`}
                 >
-                  <span className={`h-1.5 w-1.5 rounded-full ${m.open ? "bg-foreground animate-pulse" : "bg-foreground/40"}`} />
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${m.open ? "bg-foreground animate-pulse" : "bg-foreground/40"}`}
+                  />
                   {m.open ? "open" : "full"}
                 </span>
               </div>
@@ -242,7 +287,9 @@ const Mentor = () => {
                         </span>
                       )}
                     </h3>
-                    <div className="font-mono text-[11px] text-muted-foreground">{m.role}</div>
+                    <div className="font-mono text-[11px] text-muted-foreground">
+                      {m.role}
+                    </div>
                   </div>
                 </div>
 
@@ -264,9 +311,12 @@ const Mentor = () => {
                 <div className="mt-auto flex items-center justify-between border-t-2 border-dashed border-foreground/20 pt-4">
                   <div className="flex items-center gap-3 font-mono text-xs">
                     <span className="flex items-center gap-1">
-                      <Star className="h-3 w-3 fill-accent text-accent" /> {m.rating}
+                      <Star className="h-3 w-3 fill-accent text-accent" />{" "}
+                      {m.rating}
                     </span>
-                    <span className="text-muted-foreground">{m.sessions} sessions</span>
+                    <span className="text-muted-foreground">
+                      {m.sessions} sessions
+                    </span>
                   </div>
                   <Button
                     variant={m.open ? "secondary" : "soft"}
@@ -285,8 +335,7 @@ const Mentor = () => {
           ))}
         </div>
 
-        {/* Become a mentor form */}
-        {showForm && (
+        {/* {showForm && (
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -304,7 +353,8 @@ const Mentor = () => {
                     open your inbox.
                   </h2>
                   <p className="mt-2 max-w-xl font-display text-base text-muted-foreground">
-                    Three fields. We'll surface you to learners whose questions match your expertise.
+                    Three fields. We'll surface you to learners whose questions
+                    match your expertise.
                   </p>
 
                   <div className="mt-8 grid gap-5 md:grid-cols-2">
@@ -312,7 +362,9 @@ const Mentor = () => {
                       <label className="label-caps">handle</label>
                       <Input
                         value={form.handle}
-                        onChange={(e) => setForm({ ...form, handle: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, handle: e.target.value })
+                        }
                         placeholder="@your-name"
                         className="mt-1.5 rounded-sm border-2 border-foreground bg-background font-mono"
                       />
@@ -321,25 +373,35 @@ const Mentor = () => {
                       <label className="label-caps">current role</label>
                       <Input
                         value={form.role}
-                        onChange={(e) => setForm({ ...form, role: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, role: e.target.value })
+                        }
                         placeholder="e.g. Staff Engineer at —"
                         className="mt-1.5 rounded-sm border-2 border-foreground bg-background font-mono"
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="label-caps">expertise (comma-separated)</label>
+                      <label className="label-caps">
+                        expertise (comma-separated)
+                      </label>
                       <Input
                         value={form.expertise}
-                        onChange={(e) => setForm({ ...form, expertise: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, expertise: e.target.value })
+                        }
                         placeholder="scaling, postgres, mvp, fairness…"
                         className="mt-1.5 rounded-sm border-2 border-foreground bg-background font-mono"
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="label-caps">short bio · what you'll help with</label>
+                      <label className="label-caps">
+                        short bio · what you'll help with
+                      </label>
                       <Textarea
                         value={form.bio}
-                        onChange={(e) => setForm({ ...form, bio: e.target.value })}
+                        onChange={(e) =>
+                          setForm({ ...form, bio: e.target.value })
+                        }
                         placeholder="I'll help you survive your first…"
                         className="mt-1.5 min-h-[100px] rounded-sm border-2 border-foreground bg-background font-display text-base"
                       />
@@ -350,7 +412,9 @@ const Mentor = () => {
                     <input
                       type="checkbox"
                       checked={form.isWoman}
-                      onChange={(e) => setForm({ ...form, isWoman: e.target.checked })}
+                      onChange={(e) =>
+                        setForm({ ...form, isWoman: e.target.checked })
+                      }
                       className="mt-1 h-4 w-4 accent-primary"
                     />
                     <div>
@@ -359,14 +423,21 @@ const Mentor = () => {
                         I'm a woman in tech (optional · self-identify)
                       </div>
                       <p className="mt-1 font-display text-sm italic text-foreground/75">
-                        We're actively closing the mentor gender gap. Self-identifying unlocks <span className="font-bold">+50 she-builds bonus pts</span> and double-featuring on the community page for your first month.
+                        We're actively closing the mentor gender gap.
+                        Self-identifying unlocks{" "}
+                        <span className="font-bold">
+                          +50 she-builds bonus pts
+                        </span>{" "}
+                        and double-featuring on the community page for your
+                        first month.
                       </p>
                     </div>
                   </label>
 
                   <div className="mt-6 flex items-center justify-between border-t-2 border-foreground/15 pt-5">
                     <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-                      reward · mentor badge + 100 pts{form.isWoman ? " + 50 she-builds" : ""}
+                      reward · mentor badge + 100 pts
+                      {form.isWoman ? " + 50 she-builds" : ""}
                     </span>
                     <Button onClick={submit} variant="hero" size="lg">
                       <Award className="h-4 w-4" /> submit application
@@ -382,19 +453,87 @@ const Mentor = () => {
                     you're in <span className="text-accent">.</span>
                   </h3>
                   <p className="mt-3 font-display text-base text-muted-foreground">
-                    Mentor badge unlocked. We'll route the next matching question to your inbox.
+                    Mentor badge unlocked. We'll route the next matching
+                    question to your inbox.
                   </p>
                   {womanInTeam && (
                     <div className="mx-auto mt-5 inline-flex items-center gap-2 border-2 border-foreground bg-highlight/70 px-3 py-1.5 font-mono text-xs uppercase tracking-[0.16em]">
-                      <Sparkles className="h-3.5 w-3.5" /> she-builds bonus +50 applied
+                      <Sparkles className="h-3.5 w-3.5" /> she-builds bonus +50
+                      applied
                     </div>
                   )}
                 </div>
               )}
             </div>
           </motion.section>
-        )}
+        )} */}
       </div>
+
+      <Dialog
+        open={showInboxDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeInboxDialog();
+            return;
+          }
+          setShowInboxDialog(true);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          {!emailSubmitted ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Open Your Inbox</DialogTitle>
+                <DialogDescription>
+                  Enter your email ID and we’ll reach out shortly with the next
+                  steps.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-2">
+                <label className="label-caps">email ID</label>
+                <Input
+                  type="email"
+                  value={mentorEmail}
+                  onChange={(e) => setMentorEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="mt-1.5 border-2 border-foreground bg-background font-mono"
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeInboxDialog}>
+                  cancel
+                </Button>
+                <Button variant="hero" onClick={submitMentorEmail}>
+                  submit
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>You’re on our list</DialogTitle>
+                <DialogDescription>
+                  Okay, we’ll get back to you shortly at {mentorEmail.trim()}.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={closeInboxDialog}>
+                  close
+                </Button>
+                {/* <Button
+                  variant="hero"
+                  onClick={() => {
+                    closeInboxDialog();
+                    setShowForm(true);
+                  }}
+                >
+                  continue to mentor form
+                </Button> */}
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
