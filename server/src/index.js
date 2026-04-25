@@ -2337,17 +2337,17 @@ app.post("/api/projects/:id/regenerate", async (req, res) => {
   const { requirementsDoc, constraints } = req.body || {};
 
   try {
-    const { ObjectId } = await import("mongodb");
-    const project = await projectsCollection.findOne({ _id: new ObjectId(req.params.id) });
-    if (!project) {
-      return res.status(404).json({ error: "Not found" });
-    }
+    const projectId = normalizeProjectId(req.params.id);
+    if (!projectId) return res.status(400).json({ error: "id is required" });
+
+    const project = await findProjectDocByProjectId(projectId);
+    if (!project) return res.status(404).json({ error: "Project not found" });
 
     const specToUse = (requirementsDoc ?? "").trim() || project.requirementsDoc || "";
 
     if (requirementsDoc && requirementsDoc.trim()) {
       await projectsCollection.updateOne(
-        { _id: new ObjectId(req.params.id) },
+        { _id: project._id },
         { $set: { requirementsDoc: requirementsDoc.trim(), updatedAt: nowIso() } }
       );
     }
@@ -2407,7 +2407,7 @@ ${specToUse || "(no requirements doc)"}${constraintText}`,
     }
 
     await projectsCollection.updateOne(
-      { _id: new ObjectId(req.params.id) },
+      { _id: project._id },
       { $set: { components: arch.components, updatedAt: nowIso() } }
     );
 
@@ -2415,6 +2415,73 @@ ${specToUse || "(no requirements doc)"}${constraintText}`,
   } catch (err) {
     console.error("POST /api/projects/:id/regenerate error:", err);
     return res.status(500).json({ error: "Failed to regenerate architecture" });
+  }
+});
+
+// POST /api/projects/:id/suggestions — get tech swap suggestions based on constraints
+app.post("/api/projects/:id/suggestions", async (req, res) => {
+  const { constraints, components } = req.body || {};
+
+  try {
+    const projectId = normalizeProjectId(req.params.id);
+    if (!projectId) return res.status(400).json({ error: "id is required" });
+
+    const project = await findProjectDocByProjectId(projectId);
+    if (!project) return res.status(404).json({ error: "Project not found" });
+
+    const componentList = (components ?? [])
+      .map((c) => `- ${c.name} (${c.kind}): currently using ${c.tech}`)
+      .join("\n");
+
+    const constraintText = constraints
+      ? Object.entries(constraints)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(", ")
+      : "none";
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a software architect advisor. Given a list of architecture components and user constraints, suggest specific tech changes where the constraints demand it.
+Only suggest changes where there is a clear reason — do not suggest changes just for variety.
+
+Return JSON: {
+  "suggestions": [
+    {
+      "componentId": "string",
+      "componentName": "string",
+      "currentTech": "string",
+      "suggestedTech": "string",
+      "suggestedLogoKey": "string (from known logoKeys)",
+      "reason": "1-2 sentences why this change is warranted by the constraints"
+    }
+  ]
+}
+If no changes are warranted, return { "suggestions": [] }.`,
+        },
+        {
+          role: "user",
+          content: `Product: ${project.idea}\nConstraints: ${constraintText}\n\nCurrent components:\n${componentList}`,
+        },
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 800,
+      temperature: 0.4,
+    });
+
+    let result = { suggestions: [] };
+    try {
+      result = JSON.parse(completion.choices[0]?.message?.content ?? "{}");
+    } catch {
+      result = { suggestions: [] };
+    }
+
+    return res.json(result);
+  } catch (err) {
+    console.error("POST /api/projects/:id/suggestions error:", err);
+    return res.status(500).json({ error: "Failed to get suggestions" });
   }
 });
 
